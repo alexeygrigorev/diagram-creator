@@ -1,0 +1,50 @@
+{
+  "background": "#f8fafc",
+  "nodes": [
+    {
+      "id": "groom",
+      "title": "Groom",
+      "subtitle": "PM",
+      "color": "purple"
+    },
+    {
+      "id": "implement",
+      "title": "Implement",
+      "subtitle": "Engineer",
+      "color": "blue"
+    },
+    {
+      "id": "test",
+      "title": "Test",
+      "subtitle": "QA",
+      "color": "amber"
+    },
+    {
+      "id": "done",
+      "title": "Done",
+      "color": "green"
+    }
+  ],
+  "edges": [
+    {
+      "from": "groom",
+      "to": "implement"
+    },
+    {
+      "from": "implement",
+      "to": "test"
+    },
+    {
+      "from": "test",
+      "to": "done",
+      "color": "green"
+    },
+    {
+      "from": "test",
+      "to": "implement",
+      "label": "FAIL",
+      "color": "red",
+      "route": "below"
+    }
+  ]
+}
