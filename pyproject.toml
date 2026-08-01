@@ -30,6 +30,9 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["diagram_creator"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"skills/diagram-creator/assets/icons.svg" = "diagram_creator/assets/icons.svg"
+
 [tool.hatch.version]
 path = "diagram_creator/__version__.py"
 

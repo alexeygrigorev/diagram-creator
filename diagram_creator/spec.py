@@ -176,6 +176,10 @@ def _parse_layout(data: Any) -> Layout:
         raise SpecError(f"layout type must be one of: {', '.join(sorted(LAYOUTS))}")
     card_width = _optional_number(data, "card_width", "layout")
     card_height = _optional_number(data, "card_height", "layout")
+    if card_width is not None and card_width <= 0:
+        raise SpecError("layout 'card_width' must be positive")
+    if card_height is not None and card_height <= 0:
+        raise SpecError("layout 'card_height' must be positive")
     direction = data.get("direction", "clockwise")
     if direction != "clockwise":
         raise SpecError("ring direction currently must be 'clockwise'")
@@ -204,6 +208,12 @@ def _parse_node(data: Any) -> Node:
         raise SpecError(f"node '{node_id}' has unknown icon: {icon}")
     if not isinstance(eyebrow, str):
         raise SpecError(f"node '{node_id}' eyebrow must be a string")
+    width = _optional_number(data, "width", f"node '{node_id}'")
+    height = _optional_number(data, "height", f"node '{node_id}'")
+    if width is not None and width <= 0:
+        raise SpecError(f"node '{node_id}' 'width' must be positive")
+    if height is not None and height <= 0:
+        raise SpecError(f"node '{node_id}' 'height' must be positive")
     return Node(
         id=node_id,
         title=title,
@@ -213,8 +223,8 @@ def _parse_node(data: Any) -> Node:
         eyebrow=eyebrow,
         x=_optional_number(data, "x", f"node '{node_id}'"),
         y=_optional_number(data, "y", f"node '{node_id}'"),
-        width=_optional_number(data, "width", f"node '{node_id}'"),
-        height=_optional_number(data, "height", f"node '{node_id}'"),
+        width=width,
+        height=height,
     )
 
 

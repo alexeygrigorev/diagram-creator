@@ -10,12 +10,12 @@ from diagram_creator.spec import SpecError, load_spec
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Render a polished horizontal workflow diagram from JSON."
+        description="Render a polished SVG or PNG workflow diagram from JSON."
     )
     parser.add_argument("input", help="Path to the JSON diagram specification")
-    parser.add_argument("output", help="Path for the generated PNG")
-    parser.add_argument("--width", type=int, default=1440, help="Canvas width in pixels")
-    parser.add_argument("--height", type=int, default=360, help="Canvas height in pixels")
+    parser.add_argument("output", help="Path for the generated SVG or PNG")
+    parser.add_argument("--width", type=int, help="Override the JSON canvas width")
+    parser.add_argument("--height", type=int, help="Override the JSON canvas height")
     parser.add_argument("--version", action="version", version=__version__)
     return parser
 
