@@ -1,20 +1,22 @@
 ---
 name: diagram-creator
-description: Create polished workflow diagrams as deterministic PNG files from compact JSON specifications or as custom SVGs with reusable icon glyphs. Use when Codex needs to visualize a process, agent lifecycle, state flow, branching workflow, or ASCII diagram, especially when Mermaid rendering is too plain or inflexible.
+description: Create polished workflow diagrams as deterministic SVG and PNG files from compact JSON specifications with reusable layouts, cards, icons, and connectors. Use when Codex needs to visualize a process, agent lifecycle, state flow, branching workflow, circular improvement loop, or ASCII diagram, especially when Mermaid rendering is too plain or inflexible.
 ---
 
 # Diagram Creator
 
-Use the CLI for a standard horizontal PNG. Use a custom SVG for branching
-layouts, compact article graphics, or icon-enhanced nodes. Always inspect the
-rendered output.
+Create a JSON source first, render SVG while iterating, and render PNG only when
+publishing. Keep the JSON beside the generated asset or in the project’s
+diagram-source directory so later changes do not require hand-editing SVG.
 
-For a custom SVG diagram, reuse the single-glyph symbols in
-`assets/icons.svg`. Copy only the needed `<symbol>` elements into the output
-SVG's `<defs>`, then place each icon with `<use href="#icon-name">`. Available
-icons are `github`, `search`, `database`, `openai`, `issue`, `document`, `user`,
-`api`, `settings`, `pull-request`, `rank-fusion`, `message`, `video`,
-`sparkles`, `check`, `warning`, and `close`.
+Use `horizontal` for one row, `ring` for a five-stage circular loop, and
+`manual` for deliberate rows, columns, branches, and mixed card sizes. Manual
+layout still uses reusable components: specify node coordinates and connector
+anchors in JSON rather than writing SVG elements.
+
+Available icons are `github`, `search`, `database`, `openai`, `issue`,
+`document`, `user`, `api`, `settings`, `pull-request`, `rank-fusion`, `message`,
+`video`, `sparkles`, `check`, `warning`, `close`, and `mention`.
 
 Keep icons monochrome and subordinate to node labels. Use brand glyphs only
 when the node directly represents that service; do not recolor or distort them.
@@ -22,7 +24,7 @@ Place each icon close enough to its label that they read as one unit. Aim for a
 6–12 px gap between the icon and the text, center the combined icon-label group
 within the node when practical, and inspect the render for collisions.
 
-## Custom SVG design system
+## Design system
 
 Lay out the diagram on a grid before drawing individual nodes. Prefer clear
 rows and columns over independently positioned elements.
@@ -89,9 +91,9 @@ the diagram:
 }
 ```
 
-Build nodes in local coordinates and place them only with `transform`. Reuse
-this compact icon-card component; change the transform, semantic classes, icon,
-and copy, but not its internal coordinates:
+The renderer builds nodes in local coordinates and places them with one outer
+transform. These are the component internals produced by JSON; use them as an
+audit reference, not as a reason to edit the generated SVG:
 
 ```svg
 <g class="node node-compact node-with-icon"
@@ -190,43 +192,46 @@ For five nodes, place one card at the top, two at the sides, and two at the
 bottom. Keep every card the same size and keep opposite positions mirrored
 around the canvas center.
 
-For a `1100×550` canvas with `260×100` cards, use these origins:
+Use a `1100×550` canvas with `260×100` cards. Declare nodes clockwise starting
+at the top and connect each node to the next with `route: "ring"`. The renderer
+places the five cards in symmetric slots, mirrors opposite Bézier curves, and
+uses a straight horizontal arrow between the bottom cards. Do not recreate the
+ring with manual coordinates.
 
-```text
-top:          420,20
-upper-right:  760,155
-lower-right:  630,415
-lower-left:   210,415
-upper-left:    80,155
+```json
+{
+  "canvas": {"width": 1100, "height": 550, "background": "#ffffff"},
+  "layout": {"type": "ring", "card_width": 260, "card_height": 100},
+  "nodes": [
+    {"id": "one", "title": "Contribute", "icon": "issue", "color": "blue"},
+    {"id": "two", "title": "Curate", "icon": "message", "color": "purple"},
+    {"id": "three", "title": "Deploy", "icon": "database", "color": "green"},
+    {"id": "four", "title": "Answer", "icon": "mention", "color": "purple"},
+    {"id": "five", "title": "Evaluate", "icon": "warning", "color": "red"}
+  ],
+  "edges": [
+    {"from": "one", "to": "two", "route": "ring"},
+    {"from": "two", "to": "three", "route": "ring"},
+    {"from": "three", "to": "four", "route": "ring"},
+    {"from": "four", "to": "five", "route": "ring"},
+    {"from": "five", "to": "one", "route": "ring"}
+  ],
+  "center": {"title": "CURATION", "subtitle": "LOOP", "detail": "Keep improving"}
+}
 ```
 
-Draw arrows clockwise around the outside of the center area. Attach each curve
-to a deliberate midpoint on the source and target card; do not let an arrow
-land near a corner by accident. Construct opposite curves as geometric mirrors
-instead of tuning them independently. For example, these upper curves mirror
-around `x=550` while preserving their direction around the loop:
-
-```svg
-<!-- upper-left → top -->
-<path class="line" d="M230 155C260 105 330 70 420 70"/>
-
-<!-- top → upper-right: mirrored shape, reversed direction -->
-<path class="line" d="M680 70C770 70 840 105 870 155"/>
-```
-
-Use matching curves for the two lower sides and a straight horizontal arrow
-between the bottom cards. Keep all loop arrows the same stroke, marker, and
-color unless a semantic exception is explicitly important. A different color
-on only the closing edge can make one continuous loop look broken.
+Keep all loop arrows the same stroke, marker, and color unless a semantic
+exception is explicitly important. A different color on only the closing edge
+can make one continuous loop look broken.
 
 Optionally place a small neutral dashed circle in the center with a two-line
 label such as `CURATION / LOOP`. Treat it as annotation, not another workflow
 node: do not attach arrows to it, and keep it visually quieter than the cards.
 
-When one edge looks wrong, preserve the accepted ring and adjust only that
-edge. Reworking every curve can destroy an otherwise balanced circular flow.
-Inspect the rendered loop for bilateral symmetry, consistent arrow curvature,
-clear card-edge attachment, and unobstructed center whitespace.
+When one edge looks wrong, fix the reusable ring router rather than overriding
+one generated path. Inspect the rendered loop for bilateral symmetry,
+consistent arrow curvature, clear card-edge attachment, and unobstructed center
+whitespace.
 
 ## Prevent layout drift
 
@@ -289,42 +294,47 @@ same command to refresh PNGs after editing their retained SVG sources.
 ## Render a diagram
 
 1. Preserve the user's node names, roles, edge directions, and loop labels.
-2. Create a JSON file with `nodes` and `edges`.
-3. Use `route: "below"` for a feedback edge that returns to an earlier node.
-4. Choose node colors from `purple`, `blue`, `amber`, `green`, `red`, or `gray`.
-5. Choose edge colors from `gray`, `green`, `red`, `blue`, `purple`, or `amber`.
-6. Render from a checkout:
+2. Create a JSON file with `canvas`, `layout`, `nodes`, and `edges`.
+3. Add `icon` to icon-bearing nodes; use `mention` for the `@` glyph.
+4. Use `route: "below"` for feedback, `ring` for a circular loop, or `curve`
+   with two control points for a manual layout.
+5. Choose node colors from `purple`, `blue`, `amber`, `green`, `red`, or `gray`.
+6. Render SVG from a checkout while iterating:
 
 ```bash
-uv run diagram-creator input.json output.png
+uv run diagram-creator input.json output.svg
 ```
 
 Render without cloning the project:
 
 ```bash
 uvx --from git+https://github.com/alexeygrigorev/diagram-creator \
-  diagram-creator input.json output.png
+  diagram-creator input.json output.svg
 ```
 
-Use `--width` and `--height` only when the default 1440 by 360 canvas does not
-fit the workflow.
+Render `output.png` when needed; Chromium renders the generated SVG so the two
+formats match. Prefer canvas dimensions in JSON. Use `--width` and `--height`
+only for one-off overrides.
 
 ## JSON shape
 
 ```json
 {
+  "title": "Build and deploy",
+  "canvas": {"width": 900, "height": 500},
+  "layout": {"type": "manual", "card_width": 220, "card_height": 100},
   "nodes": [
-    {"id": "plan", "title": "Plan", "subtitle": "PM", "color": "purple"},
-    {"id": "build", "title": "Build", "subtitle": "Engineer", "color": "blue"}
+    {"id": "source", "title": "Sources", "icon": "document", "x": 40, "y": 60},
+    {"id": "build", "title": "Build index", "icon": "settings", "x": 340, "y": 280}
   ],
   "edges": [
-    {"from": "plan", "to": "build"},
     {
-      "from": "build",
-      "to": "plan",
-      "label": "FAIL",
-      "color": "red",
-      "route": "below"
+      "from": "source",
+      "to": "build",
+      "route": "curve",
+      "from_anchor": "right",
+      "to_anchor": "top",
+      "controls": [[300, 110], [450, 190]]
     }
   ]
 }

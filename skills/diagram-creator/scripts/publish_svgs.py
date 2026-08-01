@@ -87,12 +87,7 @@ def _replace_references(text: str) -> str:
         groups = match.groupdict()
         updated = str(Path(groups["ref"]).with_suffix(".png"))
         if "quote" in groups:
-            return (
-                groups["prefix"]
-                + updated
-                + (groups.get("suffix") or "")
-                + groups["quote"]
-            )
+            return groups["prefix"] + updated + (groups.get("suffix") or "") + groups["quote"]
         return (
             groups["prefix"]
             + (groups.get("open") or "")

@@ -1,62 +1,50 @@
-# Renderer Design
+# Renderer design
 
-The first diagram started as this ASCII workflow:
+The JSON is the source of truth. Rendering has three deterministic stages:
 
-```text
-groom (PM)  ->  implement (engineer)  ->  test (QA)  ->  done
-                       ^                        |
-                       +--------- FAIL ---------+
-```
+1. Validate labels, colors, icons, coordinates, edge references, and routes.
+2. Resolve the selected layout into card boxes and SVG paths.
+3. Write SVG directly, or ask headless Chromium to capture that SVG as PNG.
 
-The PNG needed to preserve the same graph while improving its presentation.
-A generative image model could change labels or arrows, so the renderer uses
-deterministic drawing commands instead.
+Using one SVG drawing path avoids the font, filter, and icon differences that
+occurred when SVG and PNG had independent renderers.
 
-## From text to a diagram
+## Layout model
 
-The ASCII version contains four nodes, three forward edges, and one feedback
-edge.
+The horizontal layout calculates equal card widths and gutters from the canvas.
+The manual layout uses explicit node origins but still draws every node through
+the same card component. The five-node ring uses a fixed clockwise slot system:
+top, upper right, lower right, lower left, and upper left. Opposite curves are
+derived as geometric mirrors, and the closing edge lands at the midpoint of the
+top card's left side.
 
-The JSON specification records those relationships explicitly:
+Each resolved card is a box with `x`, `y`, `width`, and `height`. Connectors use
+named anchors on those boxes. Cubic curves add two control points; ring routes
+calculate those points from the symmetric slot geometry.
 
-- Nodes appear in their left-to-right display order.
-- Forward edges connect the main workflow.
-- An edge with `route: "below"` returns to an earlier node.
-- The feedback edge has the `FAIL` label.
+## Drawing order
 
-The renderer calculates equal card widths and gaps from the canvas width.
+The SVG contains:
 
-It draws each part in this order:
+1. Accessible title and description elements.
+2. One shadow, arrow markers, needed icon symbols, and shared CSS definitions.
+3. A solid canvas background.
+4. Edges and optional labels.
+5. An optional quiet center annotation.
+6. Cards, icons, titles, and subtitles.
 
-1. Create the solid background.
-2. Draw the edges, including their arrowheads.
-3. Route feedback edges below the cards.
-4. Draw the label pill over the feedback line.
-5. Draw rounded cards with a small offset shadow.
-6. Center each title and optional role inside its card.
-7. Save the finished canvas as an optimized PNG.
+Edges are emitted before cards, so joins terminate cleanly beneath card fills.
+Each semantic color has a light fill and saturated border/icon. All ordinary
+connectors use the same neutral gray unless the JSON assigns another semantic
+color.
 
-Drawing edges before cards keeps connection points hidden under the cards.
-This produces clean joins without clipping or masking.
-
-## Typography and colors
-
-Pillow loads DejaVu Sans when it's available and falls back to its bundled
-default font. Each named palette contains a light card fill, a stronger
-outline, and separate title and subtitle colors.
-
-The main arrows use a neutral gray. A successful final edge can use green,
-while a feedback loop can use red. These colors reinforce the flow without
-changing its meaning.
-
-## Reproduce the example
-
-Run:
+## Reproduce the examples
 
 ```bash
-uv run diagram-creator examples/agent-workflow.json examples/agent-workflow.png
+uv run diagram-creator examples/agent-workflow.json examples/agent-workflow.svg
+uv run diagram-creator examples/faq-curation-loop.json examples/faq-curation-loop.svg
+uv run diagram-creator examples/faq-curation-loop.json examples/faq-curation-loop.png
 ```
 
-The command reads the JSON, validates every node and edge reference, renders
-the 1440 by 360 canvas, and writes
-[`examples/agent-workflow.png`](../examples/agent-workflow.png).
+The SVG and PNG versions of the FAQ loop have the same intrinsic dimensions and
+the PNG is a browser rendering of the generated SVG.
