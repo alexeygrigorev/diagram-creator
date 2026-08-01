@@ -1,4 +1,4 @@
 interface:
   display_name: "Diagram Creator"
-  short_description: "Create polished workflow diagrams from JSON"
-  default_prompt: "Use $diagram-creator to render a polished workflow diagram as a PNG."
+  short_description: "Create polished PNG and SVG workflow diagrams"
+  default_prompt: "Use $diagram-creator to create and inspect a polished workflow diagram."
