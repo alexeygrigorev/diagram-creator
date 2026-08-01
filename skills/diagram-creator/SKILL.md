@@ -107,6 +107,31 @@ Use `text-anchor: start` for `.icon-copy`. For an icon-free compact card, omit
 the `<use>`, remove `.icon-copy`, and place both text lines at `x="110"` so
 they are centered in the 220 px card.
 
+Reuse these local coordinates for taller components:
+
+```svg
+<!-- 220×100 action card -->
+<g class="node node-action node-with-icon" transform="translate(310 30)">
+  <rect class="process" width="220" height="100" rx="18"/>
+  <use href="#icon-settings" x="16" y="36" width="28" height="28"/>
+  <text class="title icon-copy" x="56" y="56">Build index</text>
+  <text class="subtitle" x="110" y="81">Create the new index</text>
+</g>
+
+<!-- 220×120 endpoint card with an eyebrow -->
+<g class="node node-endpoint node-with-icon" transform="translate(590 185)">
+  <rect class="endpoint" width="220" height="120" rx="20"/>
+  <text class="eyebrow" x="110" y="29">AWS LAMBDA</text>
+  <use href="#icon-database" x="16" y="41" width="28" height="28"/>
+  <text class="title icon-copy" x="56" y="61">FAQ assistant</text>
+  <text class="subtitle" x="110" y="91">Search index + answer API</text>
+</g>
+```
+
+Treat these coordinates as component internals. Move a node with its group
+transform; do not retune its icon or text coordinates per label. Represent a
+text glyph such as `@` as a pseudo-icon centered in the same 28 px icon column.
+
 | Token | Default | Use |
 | --- | ---: | --- |
 | `space-xs` | 6 px | Minimum icon-to-label gap |
@@ -157,6 +182,46 @@ and deployed services, red for failures, and gray for neutral structure. Use a
 light tint for fills, a saturated hue for borders/icons, `#172033` for primary
 text, `#64748b` for secondary text and connectors, and one subtle shadow for
 all cards.
+
+## Prevent layout drift
+
+Apply tokens in the SVG itself; a token table does not help if nodes still use
+independently tuned absolute coordinates.
+
+- Render before deciding that copy fits. SVG coordinates describe anchors, not
+  the rendered ink bounds of a particular font.
+- Keep at least 12–16 px of visible padding between rendered text and the card
+  edge. Inspect long titles, decision labels, and edge labels at full size.
+- If a label overflows, shorten redundant copy or widen every peer card and
+  move the entire column grid. Never move only its icon, change only its text
+  axis, or widen one peer card.
+- Keep peer cards the same width even when one label is short. Increase the
+  canvas before reducing padding or font size.
+- Keep equal gutters between columns. Route split/merge buses through gutter
+  centers so equivalent connector segments have equal lengths.
+- Attach dependency lines to the actual producer and consumer nodes. Do not
+  start a dashed or labeled relationship in an empty gutter merely because the
+  line looks nearby.
+- Put long request/response semantics in card subtitles when a 60 px connector
+  cannot hold the label. If an edge label is essential, widen the relevant
+  gutters consistently or route it through open space.
+
+## Audit before handoff
+
+1. Render every SVG with Chromium, not a different SVG engine.
+2. Inspect every PNG at full resolution. A montage is useful for consistency
+   but can hide 1–10 px overflow and clipped labels.
+3. Check icon viewport, title axis, subtitle baseline, border width, radius,
+   semantic color, column gutter, stack gap, connector attachment, and crop.
+4. Confirm each PNG has the SVG's intrinsic dimensions and is newer than its
+   source. Rerun the publisher after the final SVG edit.
+5. When exact browser fidelity matters, render the SVG independently with the
+   same Chromium flags and require zero differing pixels against the PNG.
+6. For a multi-diagram set, perform a second independent visual audit after
+   all fixes. Re-audit the current artifacts, not remembered coordinates from
+   an earlier revision.
+7. After an interrupted publish, remove any leftover `.diagram-publish-*`
+   staging directory before committing.
 
 ## Publish SVG diagrams as PNG
 
