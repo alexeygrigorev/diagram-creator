@@ -183,6 +183,51 @@ light tint for fills, a saturated hue for borders/icons, `#172033` for primary
 text, `#64748b` for secondary text and connectors, and one subtle shadow for
 all cards.
 
+## Circular loop illustrations
+
+Use a symmetric ring when the final step improves or restarts the first step.
+For five nodes, place one card at the top, two at the sides, and two at the
+bottom. Keep every card the same size and keep opposite positions mirrored
+around the canvas center.
+
+For a `1100×550` canvas with `260×100` cards, use these origins:
+
+```text
+top:          420,20
+upper-right:  760,155
+lower-right:  630,415
+lower-left:   210,415
+upper-left:    80,155
+```
+
+Draw arrows clockwise around the outside of the center area. Attach each curve
+to a deliberate midpoint on the source and target card; do not let an arrow
+land near a corner by accident. Construct opposite curves as geometric mirrors
+instead of tuning them independently. For example, these upper curves mirror
+around `x=550` while preserving their direction around the loop:
+
+```svg
+<!-- upper-left → top -->
+<path class="line" d="M230 155C260 105 330 70 420 70"/>
+
+<!-- top → upper-right: mirrored shape, reversed direction -->
+<path class="line" d="M680 70C770 70 840 105 870 155"/>
+```
+
+Use matching curves for the two lower sides and a straight horizontal arrow
+between the bottom cards. Keep all loop arrows the same stroke, marker, and
+color unless a semantic exception is explicitly important. A different color
+on only the closing edge can make one continuous loop look broken.
+
+Optionally place a small neutral dashed circle in the center with a two-line
+label such as `CURATION / LOOP`. Treat it as annotation, not another workflow
+node: do not attach arrows to it, and keep it visually quieter than the cards.
+
+When one edge looks wrong, preserve the accepted ring and adjust only that
+edge. Reworking every curve can destroy an otherwise balanced circular flow.
+Inspect the rendered loop for bilateral symmetry, consistent arrow curvature,
+clear card-edge attachment, and unobstructed center whitespace.
+
 ## Prevent layout drift
 
 Apply tokens in the SVG itself; a token table does not help if nodes still use
