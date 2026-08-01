@@ -165,14 +165,16 @@ local SVG images referenced by one or more Markdown files and replace those
 references with PNG:
 
 ```bash
-uv run --with cairosvg python scripts/publish_svgs.py article.md
+python scripts/publish_svgs.py article.md
 ```
 
-Run the script from the skill directory or use its absolute path. It retains
-the SVG sources, writes same-name PNG files beside them, and changes Markdown
-only after every referenced SVG renders successfully. Use `--scale 2` when a
+Run the script from the skill directory or use its absolute path. It renders
+with Chromium so the PNG matches the browser-rendered SVG. It retains the SVG
+sources, writes same-name PNG files beside them, and changes Markdown only
+after every referenced SVG renders successfully. Use `--scale 2` when a
 higher-density raster is needed. PNG output has a white background by default;
-pass `--background transparent` when transparency is intentional.
+pass `--background transparent` when transparency is intentional. Rerun the
+same command to refresh PNGs after editing their retained SVG sources.
 
 ## Render a diagram
 
