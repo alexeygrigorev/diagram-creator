@@ -1,10 +1,10 @@
 # Diagram Creator
 
+[![tests](https://github.com/alexeygrigorev/diagram-creator/actions/workflows/tests.yml/badge.svg)](https://github.com/alexeygrigorev/diagram-creator/actions/workflows/tests.yml)
+
 Diagram Creator turns a compact JSON specification into a deterministic SVG or
 PNG. The same renderer handles horizontal workflows, explicitly positioned
 rows and columns, and five-step circular loops with reusable icons.
-
-![FAQ curation loop](examples/faq-curation-loop.png)
 
 ## Quick start
 
@@ -25,6 +25,37 @@ uv run diagram-creator input.json output.png
 
 Canvas dimensions belong in JSON. `--width` and `--height` can override them
 for a one-off render.
+
+## Examples
+
+Each image below is generated from the linked JSON source.
+
+### Horizontal workflow
+
+The default layout evenly spaces a workflow from left to right and can route a
+feedback edge below the main flow.
+
+![Horizontal agent workflow with a feedback edge](examples/agent-workflow.png)
+
+[JSON source](examples/agent-workflow.json) · [SVG output](examples/agent-workflow.svg)
+
+### Manual rows and columns
+
+Manual layout gives nodes explicit positions while retaining the same cards,
+icons, anchors, and curved connectors.
+
+![Three knowledge sources merging into an index and FAQ assistant](examples/manual-pipeline.png)
+
+[JSON source](examples/manual-pipeline.json) · [SVG output](examples/manual-pipeline.svg)
+
+### Circular improvement loop
+
+Ring layout places five equal cards clockwise and derives mirrored connector
+curves automatically.
+
+![FAQ curation and improvement loop](examples/faq-curation-loop.png)
+
+[JSON source](examples/faq-curation-loop.json) · [SVG output](examples/faq-curation-loop.svg)
 
 ## Diagram specification
 

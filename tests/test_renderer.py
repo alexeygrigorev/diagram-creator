@@ -1,10 +1,15 @@
 import json
+from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from diagram_creator.cli import main
 from diagram_creator.renderer import render_diagram
-from diagram_creator.spec import DiagramSpec
+from diagram_creator.spec import DiagramSpec, load_spec
+
+
+EXAMPLE_SPECS = tuple(sorted(Path("examples").glob("*.json")))
 
 
 def workflow_spec():
@@ -131,3 +136,12 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     assert ">@</text>" in svg
     assert 'textLength="188"' in svg
     assert "Each failure improves the data" in svg
+
+
+@pytest.mark.parametrize("source", EXAMPLE_SPECS, ids=lambda path: path.stem)
+def test_checked_in_example_svg_matches_its_json(source, tmp_path):
+    output = tmp_path / source.with_suffix(".svg").name
+
+    render_diagram(load_spec(source), output)
+
+    assert output.read_bytes() == source.with_suffix(".svg").read_bytes()

@@ -1,0 +1,89 @@
+{
+  "title": "Build a searchable knowledge index",
+  "description": "Documentation, course repositories, and FAQ records feed a shared index that is deployed with the FAQ assistant.",
+  "canvas": {
+    "width": 1100,
+    "height": 450,
+    "background": "#ffffff"
+  },
+  "layout": {
+    "type": "manual",
+    "card_width": 230,
+    "card_height": 90
+  },
+  "nodes": [
+    {
+      "id": "docs",
+      "title": "Documentation",
+      "subtitle": "Published guides",
+      "color": "blue",
+      "icon": "document",
+      "x": 30,
+      "y": 40
+    },
+    {
+      "id": "courses",
+      "title": "Course repos",
+      "subtitle": "Markdown files",
+      "color": "blue",
+      "icon": "github",
+      "x": 30,
+      "y": 180
+    },
+    {
+      "id": "faq",
+      "title": "FAQ dataset",
+      "subtitle": "Reviewed records",
+      "color": "green",
+      "icon": "database",
+      "x": 30,
+      "y": 320
+    },
+    {
+      "id": "build",
+      "title": "Build index",
+      "subtitle": "Combine all sources",
+      "color": "amber",
+      "icon": "settings",
+      "x": 435,
+      "y": 180
+    },
+    {
+      "id": "assistant",
+      "title": "FAQ assistant",
+      "subtitle": "Fresh search in Lambda",
+      "color": "purple",
+      "icon": "search",
+      "x": 840,
+      "y": 180
+    }
+  ],
+  "edges": [
+    {
+      "from": "docs",
+      "to": "build",
+      "route": "curve",
+      "from_anchor": "right",
+      "to_anchor": "left",
+      "controls": [[340, 85], [340, 225]]
+    },
+    {
+      "from": "courses",
+      "to": "build",
+      "route": "straight"
+    },
+    {
+      "from": "faq",
+      "to": "build",
+      "route": "curve",
+      "from_anchor": "right",
+      "to_anchor": "left",
+      "controls": [[340, 365], [340, 225]]
+    },
+    {
+      "from": "build",
+      "to": "assistant",
+      "route": "straight"
+    }
+  ]
+}
