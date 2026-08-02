@@ -18,6 +18,11 @@ Available icons are `github`, `search`, `database`, `openai`, `issue`,
 `document`, `user`, `api`, `settings`, `pull-request`, `rank-fusion`, `message`,
 `video`, `sparkles`, `check`, `warning`, `close`, and `mention`.
 
+If a diagram needs an icon that is not available, create it instead of using
+an unrelated substitute. Add it to the renderer's icon library and accepted
+icon set, match the existing monochrome style, and validate it in the rendered
+diagram.
+
 Keep icons monochrome and subordinate to node labels. Use brand glyphs only
 when the node directly represents that service; do not recolor or distort them.
 Place each icon close enough to its label that they read as one unit. Aim for a
