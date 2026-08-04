@@ -52,6 +52,12 @@ PALETTES = {
 }
 
 EDGE_COLORS = {name: palette.stroke for name, palette in PALETTES.items()}
+DEFAULT_STANDALONE_ICON_SIZE = 56
+STANDALONE_ICON_DIMENSIONS = {
+    "user": (56, 56),
+    "browser": (160, 112),
+    "database": (84, 84),
+}
 SYMBOL_PATTERN = re.compile(r"<symbol\s+id=\"icon-(?P<name>[^\"]+)\".*?</symbol>", re.DOTALL)
 
 
@@ -106,6 +112,14 @@ def render_svg_text(
         f'<path d="M0 0 10 5 0 10Z" fill="{color}"/></marker>'
         for name, color in EDGE_COLORS.items()
     )
+    start_marker_colors = {edge.color for edge in spec.edges if edge.bidirectional}
+    start_markers = "\n".join(
+        f'<marker id="arrow-start-{name}" viewBox="0 0 10 10" refX="9" refY="5" '
+        'markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
+        f'<path d="M0 0 10 5 0 10Z" fill="{EDGE_COLORS[name]}"/></marker>'
+        for name in sorted(start_marker_colors)
+    )
+    marker_defs = markers + ("\n" + start_markers if start_markers else "")
     description = spec.description or _default_description(spec)
 
     parts = [
@@ -119,7 +133,7 @@ def render_svg_text(
         '      <feDropShadow dx="0" dy="4" stdDeviation="5" '
         'flood-color="#0f172a" flood-opacity="0.08"/>',
         "    </filter>",
-        _indent(markers, 4),
+        _indent(marker_defs, 4),
         _indent(symbols, 4),
         _indent(_style(), 4),
         "  </defs>",
@@ -127,6 +141,7 @@ def render_svg_text(
         f'fill="{escape(spec.canvas.background)}"/>',
         "",
     ]
+    parts.extend(_draw_dividers(spec, boxes, canvas_width))
     parts.extend(_draw_edge(spec, edge, boxes, canvas_width, canvas_height) for edge in spec.edges)
     if spec.center is not None:
         parts.extend(("", _draw_center(spec, canvas_width, canvas_height)))
@@ -144,14 +159,87 @@ def _layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
             node.id: Box(
                 node.x or 0,
                 node.y or 0,
-                node.width or default_width,
-                node.height or default_height,
+                node.width
+                or (
+                    _standalone_icon_dimensions(node)[0]
+                    if node.variant == "icon"
+                    else default_width
+                ),
+                node.height
+                or (
+                    _standalone_icon_dimensions(node)[1]
+                    if node.variant == "icon"
+                    else default_height
+                ),
             )
             for node in spec.nodes
         }
     if spec.layout.type == "ring":
         return _ring_layout(spec, width, height)
+    if spec.layout.type == "grid":
+        return _grid_layout(spec, width, height)
     return _horizontal_layout(spec, width, height)
+
+
+def _grid_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
+    default_width = spec.layout.card_width or 220
+    default_height = spec.layout.card_height or 100
+    dimensions: dict[str, tuple[float, float]] = {}
+    for node in spec.nodes:
+        if node.variant == "icon":
+            token_width, token_height = _standalone_icon_dimensions(node)
+            dimensions[node.id] = (node.width or token_width, node.height or token_height)
+        else:
+            dimensions[node.id] = (node.width or default_width, node.height or default_height)
+
+    columns = sorted({node.column for node in spec.nodes if node.column is not None})
+    rows = sorted({node.row for node in spec.nodes if node.row is not None})
+    if spec.layout.column_width is not None:
+        column_widths = {column: spec.layout.column_width for column in columns}
+    else:
+        column_widths = {
+            column: max(dimensions[node.id][0] for node in spec.nodes if node.column == column)
+            for column in columns
+        }
+    if spec.layout.row_height is not None:
+        row_heights = {row: spec.layout.row_height for row in rows}
+    else:
+        row_heights = {
+            row: max(dimensions[node.id][1] for node in spec.nodes if node.row == row)
+            for row in rows
+        }
+    for node in spec.nodes:
+        assert node.column is not None and node.row is not None
+        node_width, node_height = dimensions[node.id]
+        if node_width > column_widths[node.column] or node_height > row_heights[node.row]:
+            raise SpecError(f"grid cell is too small for node '{node.id}'")
+    grid_width = sum(column_widths.values()) + spec.layout.column_gap * (len(columns) - 1)
+    grid_height = sum(row_heights.values()) + spec.layout.row_gap * (len(rows) - 1)
+    if grid_width > width or grid_height > height:
+        raise SpecError("the canvas is too small for the requested grid")
+
+    column_x: dict[int, float] = {}
+    cursor_x = (width - grid_width) / 2
+    for column in columns:
+        column_x[column] = cursor_x
+        cursor_x += column_widths[column] + spec.layout.column_gap
+    row_y: dict[int, float] = {}
+    cursor_y = (height - grid_height) / 2
+    for row in rows:
+        row_y[row] = cursor_y
+        cursor_y += row_heights[row] + spec.layout.row_gap
+
+    boxes: dict[str, Box] = {}
+    for node in spec.nodes:
+        assert node.column is not None and node.row is not None
+        node_width, node_height = dimensions[node.id]
+        boxes[node.id] = Box(
+            column_x[node.column] + (column_widths[node.column] - node_width) / 2,
+            row_y[node.row] + (row_heights[node.row] - node_height) / 2,
+            node_width,
+            node_height,
+        )
+    return boxes
 
 
 def _horizontal_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
@@ -202,6 +290,9 @@ def _ring_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
 
 def _draw_node(node: Node, box: Box) -> str:
     palette = PALETTES[node.color]
+    if node.variant == "icon":
+        return _draw_icon_node(node, box, palette)
+    plain = node.variant == "plain"
     icon_size = 28
     compact = box.height < 80
     icon_y = 19 if compact else (box.height - icon_size) / 2
@@ -209,12 +300,17 @@ def _draw_node(node: Node, box: Box) -> str:
     subtitle_y = 50 if compact else box.height / 2 + 31
     center_x = box.width / 2
     radius = 16 if compact else 18
+    shadow = "" if plain else ' filter="url(#shadow)"'
+    variant_class = "node node-plain" if plain else "node"
     lines = [
-        f'  <g class="node node-{escape(node.color)}" '
-        f'transform="translate({_number(box.x)} {_number(box.y)})" filter="url(#shadow)">',
-        f'    <rect width="{_number(box.width)}" height="{_number(box.height)}" '
-        f'rx="{radius}" fill="{palette.fill}" stroke="{palette.stroke}"/>',
+        f'  <g class="{variant_class} node-{escape(node.color)}" '
+        f'transform="translate({_number(box.x)} {_number(box.y)})"{shadow}>',
     ]
+    if not plain:
+        lines.append(
+            f'    <rect width="{_number(box.width)}" height="{_number(box.height)}" '
+            f'rx="{radius}" fill="{palette.fill}" stroke="{palette.stroke}"/>'
+        )
     if node.eyebrow:
         lines.append(
             f'    <text class="eyebrow" x="{_number(center_x)}" y="25">'
@@ -244,12 +340,82 @@ def _draw_node(node: Node, box: Box) -> str:
         f"{escape(node.title)}</text>"
     )
     if node.subtitle:
+        # A borderless label has no card to center against, so both lines share one axis.
+        aligned = plain and node.icon
+        subtitle_x = title_x if aligned else center_x
+        subtitle_class = "node-subtitle icon-copy" if aligned else "node-subtitle"
         lines.append(
-            f'    <text class="node-subtitle" x="{_number(center_x)}" '
+            f'    <text class="{subtitle_class}" x="{_number(subtitle_x)}" '
             f'y="{_number(subtitle_y)}">{escape(node.subtitle)}</text>'
         )
     lines.append("  </g>")
     return "\n".join(lines)
+
+
+def _draw_dividers(spec: DiagramSpec, boxes: dict[str, Box], width: int) -> list[str]:
+    if not spec.dividers:
+        return []
+    rows = sorted({node.row for node in spec.nodes if node.row is not None})
+    bottoms: dict[int, float] = {}
+    tops: dict[int, float] = {}
+    for node in spec.nodes:
+        assert node.row is not None
+        box = boxes[node.id]
+        # A standalone icon prints its label below the box, so the row ends lower.
+        label_room = 32 if node.variant == "icon" and node.show_label else 0
+        bottoms[node.row] = max(bottoms.get(node.row, box.bottom), box.bottom + label_room)
+        tops[node.row] = min(tops.get(node.row, box.y), box.y)
+    left = min(box.x for box in boxes.values())
+    right = max(box.right for box in boxes.values())
+    padding = min(24.0, left, width - right)
+    lines = []
+    for divider in spec.dividers:
+        below = rows[rows.index(divider.after_row) + 1]
+        y = (bottoms[divider.after_row] + tops[below]) / 2
+        lines.append(
+            f'  <line class="divider" x1="{_number(left - padding)}" y1="{_number(y)}" '
+            f'x2="{_number(right + padding)}" y2="{_number(y)}"/>'
+        )
+    lines.append("")
+    return lines
+
+
+def _draw_icon_node(node: Node, box: Box, palette: Palette) -> str:
+    token_width, token_height = _standalone_icon_dimensions(node)
+    icon_width = min(token_width, box.width)
+    icon_height = min(token_height, box.height)
+    icon_x = (box.width - icon_width) / 2
+    title_y = box.height + 25
+    lines = [
+        f'  <g class="node-icon-only node-{escape(node.color)}" '
+        f'transform="translate({_number(box.x)} {_number(box.y)})">',
+    ]
+    if node.icon == "mention":
+        lines.append(
+            f'    <text class="standalone-mention" x="{_number(box.width / 2)}" '
+            f'y="{_number(icon_height * 0.8)}" fill="{palette.stroke}">@</text>'
+        )
+    else:
+        lines.append(
+            f'    <use href="#icon-{escape(node.icon or "")}" '
+            f'x="{_number(icon_x)}" y="0" width="{_number(icon_width)}" '
+            f'height="{_number(icon_height)}" color="{palette.stroke}"/>'
+        )
+    if node.show_label:
+        lines.append(
+            f'    <text class="icon-node-title" x="{_number(box.width / 2)}" '
+            f'y="{_number(title_y)}">{escape(node.title)}</text>'
+        )
+    lines.append("  </g>")
+    return "\n".join(lines)
+
+
+def _standalone_icon_dimensions(node: Node) -> tuple[float, float]:
+    if node.icon_size is not None:
+        return (node.icon_size, node.icon_size)
+    return STANDALONE_ICON_DIMENSIONS.get(
+        node.icon or "", (DEFAULT_STANDALONE_ICON_SIZE, DEFAULT_STANDALONE_ICON_SIZE)
+    )
 
 
 def _draw_edge(
@@ -267,8 +433,10 @@ def _draw_edge(
     else:
         path, label_point = _direct_path(edge, boxes, curved=route == "curve")
     color = EDGE_COLORS[edge.color]
+    marker_start = f' marker-start="url(#arrow-start-{edge.color})"' if edge.bidirectional else ""
     line = (
-        f'  <path class="edge" d="{path}" stroke="{color}" marker-end="url(#arrow-{edge.color})"/>'
+        f'  <path class="edge" d="{path}" stroke="{color}"{marker_start} '
+        f'marker-end="url(#arrow-{edge.color})"/>'
     )
     if not edge.label:
         return line
@@ -458,11 +626,15 @@ def _style() -> str:
   .node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
   .node-title.icon-copy { text-anchor: start; }
   .node-subtitle { font-size: 14px; font-weight: 500; fill: #64748b; text-anchor: middle; }
+  .node-subtitle.icon-copy { text-anchor: start; }
   .eyebrow { font-size: 12px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
   .mention-icon { font-size: 27px; font-weight: 750; text-anchor: middle; }
+  .standalone-mention { font-size: 52px; font-weight: 750; text-anchor: middle; }
+  .icon-node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
   .edge { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
   .edge-label rect { stroke-width: 2; }
   .edge-label text { font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }
+  .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }
   .center-annotation { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 7 7; }
   .center-title { font-size: 16px; font-weight: 800; letter-spacing: 1.3px; fill: #334155; text-anchor: middle; }
   .center-detail { font-size: 13px; font-weight: 600; fill: #64748b; text-anchor: middle; }

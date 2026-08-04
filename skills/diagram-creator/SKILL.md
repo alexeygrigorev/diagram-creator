@@ -9,14 +9,19 @@ Create a JSON source first, render SVG while iterating, and render PNG only when
 publishing. Keep the JSON beside the generated asset or in the project’s
 diagram-source directory so later changes do not require hand-editing SVG.
 
-Use `horizontal` for one row, `ring` for a five-stage circular loop, and
-`manual` for deliberate rows, columns, branches, and mixed card sizes. Manual
-layout still uses reusable components: specify node coordinates and connector
-anchors in JSON rather than writing SVG elements.
+Use `horizontal` for one row, `grid` for deliberate rows and columns, `ring`
+for a five-stage circular loop, and `manual` for free-form branches and mixed
+positions. Grid nodes use `row` and `column`; grid columns and rows size to
+their largest node while `column_gap` and `row_gap` remain equal. Set
+`column_width` and `row_height` when every grid cell should use fixed
+dimensions. Manual layout keeps explicit `x` and `y` available when the grid
+is not appropriate.
 
 Available icons are `github`, `search`, `database`, `openai`, `issue`,
-`document`, `user`, `api`, `settings`, `pull-request`, `rank-fusion`, `message`,
-`video`, `sparkles`, `check`, `warning`, `close`, and `mention`.
+`document`, `user`, `browser`, `websocket`, `api`, `settings`, `pull-request`,
+`rank-fusion`, `message`, `video`, `sparkles`, `check`, `warning`, `close`,
+`mention`, `number-1`, `number-2`, and `number-3`. Use the numbered icons to
+mark ordered stages instead of writing the step number into the title.
 
 If a diagram needs an icon that is not available, create it instead of using
 an unrelated substitute. Add it to the renderer's icon library and accepted
@@ -28,6 +33,24 @@ when the node directly represents that service; do not recolor or distort them.
 Place each icon close enough to its label that they read as one unit. Aim for a
 6–12 px gap between the icon and the text, center the combined icon-label group
 within the node when practical, and inspect the render for collisions.
+
+Use `"variant": "icon"` for a standalone symbol with its `title` underneath
+and no card. Use this for actors and simple endpoints when a full card adds
+unnecessary visual weight. Set `"show_label": false` when the icon should have
+no visible label; keep `title` because it is still used for accessibility. Use
+`"icon_size"` for an explicit override. Prefer the reusable standalone sizes:
+56×56 px for `user`, 160×112 px for `browser`, and 84×84 px for `database`.
+The renderer applies these automatically when no override is present.
+
+Use `"variant": "plain"` for a card without its rectangle. It keeps the grid
+cell, icon column, and typography of a card but drops the fill, border, and
+shadow. Use it for row and stage labels that name a group of nodes instead of
+participating in the flow, and keep its subtitle on the title axis.
+
+In a grid diagram, use `"dividers": [{"after_row": 0}]` to separate rows with a
+dashed rule drawn halfway between that row and the one below. Prefer a divider
+over a connector when consecutive rows are separate snapshots of one system
+rather than steps that hand work to each other.
 
 ## Design system
 
@@ -159,6 +182,9 @@ text glyph such as `@` as a pseudo-icon centered in the same 28 px icon column.
 | `compact-title-size` | 16 px | Compact icon-card title |
 | `subtitle-size` | 14 px | Supporting text |
 | `eyebrow-size` | 12 px | Optional service/category label |
+| `standalone-user-size` | 56×56 px | Person or actor primitive |
+| `standalone-browser-size` | 160×112 px | Browser or frontend primitive |
+| `standalone-database-size` | 84×84 px | Database cylinder primitive |
 
 For a compact node with an icon, treat the icon and the two text lines as one
 component:
@@ -300,9 +326,11 @@ same command to refresh PNGs after editing their retained SVG sources.
 
 1. Preserve the user's node names, roles, edge directions, and loop labels.
 2. Create a JSON file with `canvas`, `layout`, `nodes`, and `edges`.
-3. Add `icon` to icon-bearing nodes; use `mention` for the `@` glyph.
+3. Add `icon` to icon-bearing nodes; use `mention` for the `@` glyph. Use
+   `"variant": "icon"` for an icon with an optional label and no card.
 4. Use `route: "below"` for feedback, `ring` for a circular loop, or `curve`
-   with two control points for a manual layout.
+   with two control points for a manual layout. Use `"bidirectional": true`
+   for one connector with arrowheads at both ends.
 5. Choose node colors from `purple`, `blue`, `amber`, `green`, `red`, or `gray`.
 6. Render SVG from a checkout while iterating:
 

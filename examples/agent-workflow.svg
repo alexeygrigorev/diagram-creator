@@ -18,11 +18,15 @@
       .node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
       .node-title.icon-copy { text-anchor: start; }
       .node-subtitle { font-size: 14px; font-weight: 500; fill: #64748b; text-anchor: middle; }
+      .node-subtitle.icon-copy { text-anchor: start; }
       .eyebrow { font-size: 12px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
       .mention-icon { font-size: 27px; font-weight: 750; text-anchor: middle; }
+      .standalone-mention { font-size: 52px; font-weight: 750; text-anchor: middle; }
+      .icon-node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
       .edge { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
       .edge-label rect { stroke-width: 2; }
       .edge-label text { font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }
+      .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }
       .center-annotation { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 7 7; }
       .center-title { font-size: 16px; font-weight: 800; letter-spacing: 1.3px; fill: #334155; text-anchor: middle; }
       .center-detail { font-size: 13px; font-weight: 600; fill: #64748b; text-anchor: middle; }

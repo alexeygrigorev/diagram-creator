@@ -65,6 +65,211 @@ def test_cli_renders_a_json_spec(tmp_path):
     assert output.exists()
 
 
+def test_renders_a_bidirectional_edge_with_two_arrowheads(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "frontend", "title": "Frontend"},
+                {"id": "contract", "title": "OpenAPI"},
+            ],
+            "edges": [
+                {
+                    "from": "frontend",
+                    "to": "contract",
+                    "color": "purple",
+                    "bidirectional": True,
+                }
+            ],
+        }
+    )
+    output = tmp_path / "bidirectional.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'id="arrow-start-purple"' in svg
+    assert 'marker-start="url(#arrow-start-purple)"' in svg
+    assert 'marker-end="url(#arrow-purple)"' in svg
+
+
+def test_grid_layout_uses_equal_gutters_between_variable_width_nodes(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 880, "height": 400},
+            "layout": {
+                "type": "grid",
+                "card_width": 240,
+                "card_height": 110,
+                "column_gap": 80,
+                "column_width": 240,
+                "row_height": 112,
+            },
+            "nodes": [
+                {
+                    "id": "frontend",
+                    "title": "Frontend",
+                    "icon": "browser",
+                    "variant": "icon",
+                    "row": 0,
+                    "column": 0,
+                },
+                {"id": "contract", "title": "OpenAPI", "row": 0, "column": 1},
+                {"id": "backend", "title": "Backend", "row": 0, "column": 2},
+            ],
+            "edges": [
+                {"from": "frontend", "to": "contract"},
+                {"from": "contract", "to": "backend"},
+            ],
+        }
+    )
+    output = tmp_path / "grid.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'transform="translate(40 144)"' in svg
+    assert 'transform="translate(320 145)"' in svg
+    assert 'transform="translate(640 145)"' in svg
+
+
+def test_renders_browser_and_websocket_symbols(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "browser", "title": "Browser", "icon": "browser"},
+                {"id": "socket", "title": "WebSocket", "icon": "websocket"},
+            ],
+            "edges": [{"from": "browser", "to": "socket"}],
+        }
+    )
+    output = tmp_path / "icons.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert '<symbol id="icon-browser" viewBox="0 0 32 22">' in svg
+    assert '<symbol id="icon-websocket"' in svg
+    assert 'href="#icon-browser"' in svg
+    assert 'href="#icon-websocket"' in svg
+    assert 'vector-effect="non-scaling-stroke"' in svg
+
+
+def test_renders_an_icon_node_with_its_label_but_without_a_card(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {
+                    "id": "person",
+                    "title": "User",
+                    "icon": "user",
+                    "variant": "icon",
+                    "icon_size": 48,
+                    "x": 40,
+                    "y": 60,
+                    "width": 80,
+                    "height": 56,
+                },
+                {"id": "app", "title": "App", "x": 300, "y": 40},
+            ],
+            "edges": [{"from": "person", "to": "app"}],
+        }
+    )
+    output = tmp_path / "icon-node.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    icon_group = svg.split('<g class="node-icon-only', 1)[1].split("</g>", 1)[0]
+    assert 'href="#icon-user"' in icon_group
+    assert 'width="48" height="48"' in icon_group
+    assert ">User</text>" in icon_group
+    assert "<rect" not in icon_group
+
+
+def test_renders_an_icon_node_without_a_visible_label(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "manual"},
+            "nodes": [
+                {
+                    "id": "person",
+                    "title": "User",
+                    "icon": "user",
+                    "variant": "icon",
+                    "show_label": False,
+                    "x": 40,
+                    "y": 60,
+                    "width": 80,
+                    "height": 56,
+                },
+                {"id": "app", "title": "App", "x": 300, "y": 40},
+            ],
+            "edges": [{"from": "person", "to": "app"}],
+        }
+    )
+    output = tmp_path / "unlabeled-icon-node.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    icon_group = svg.split('<g class="node-icon-only', 1)[1].split("</g>", 1)[0]
+    assert 'href="#icon-user"' in icon_group
+    assert ">User</text>" not in icon_group
+
+
+def test_uses_reusable_sizes_for_standalone_browser_and_database_icons(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "manual"},
+            "nodes": [
+                {
+                    "id": "browser",
+                    "title": "Frontend",
+                    "icon": "browser",
+                    "variant": "icon",
+                    "x": 40,
+                    "y": 60,
+                },
+                {
+                    "id": "database",
+                    "title": "SQLite",
+                    "icon": "database",
+                    "variant": "icon",
+                    "x": 300,
+                    "y": 88,
+                },
+            ],
+            "edges": [{"from": "browser", "to": "database"}],
+        }
+    )
+    output = tmp_path / "semantic-icon-sizes.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'href="#icon-browser" x="0" y="0" width="160" height="112"' in svg
+    assert 'href="#icon-database" x="0" y="0" width="84" height="84"' in svg
+    database_symbol = svg.split('<symbol id="icon-database"', 1)[1].split("</symbol>", 1)[0]
+    assert database_symbol.count('vector-effect="non-scaling-stroke"') == 2
+
+    user_spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "user", "title": "User", "icon": "user"},
+                {"id": "app", "title": "App"},
+            ],
+            "edges": [{"from": "user", "to": "app"}],
+        }
+    )
+    user_output = tmp_path / "user-stroke.svg"
+    render_diagram(user_spec, user_output)
+    user_symbol = (
+        user_output.read_text().split('<symbol id="icon-user"', 1)[1].split("</symbol>", 1)[0]
+    )
+    assert user_symbol.count('vector-effect="non-scaling-stroke"') == 2
+
+
 def test_renders_a_five_node_ring_as_svg(tmp_path):
     spec = DiagramSpec.from_dict(
         {
@@ -145,3 +350,56 @@ def test_checked_in_example_svg_matches_its_json(source, tmp_path):
     render_diagram(load_spec(source), output)
 
     assert output.read_bytes() == source.with_suffix(".svg").read_bytes()
+
+
+def test_renders_a_plain_node_without_a_card(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {
+                    "id": "stage",
+                    "title": "Prototype",
+                    "subtitle": "Test the experience",
+                    "icon": "number-1",
+                    "variant": "plain",
+                    "color": "blue",
+                },
+                {"id": "app", "title": "App", "subtitle": "Frontend"},
+            ],
+            "edges": [{"from": "stage", "to": "app"}],
+        }
+    )
+    output = tmp_path / "plain.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert '<symbol id="icon-number-1"' in svg
+    assert svg.count("<rect") == 2  # the canvas background and the one real card
+    assert 'class="node node-plain node-blue"' in svg
+    assert 'filter="url(#shadow)">\n    <rect' in svg  # only the card keeps the shadow
+    assert '<text class="node-subtitle icon-copy" x="56"' in svg
+
+
+def test_draws_a_dashed_divider_between_grid_rows(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 800, "height": 400},
+            "layout": {"type": "grid", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {"id": "top", "title": "Top", "row": 0, "column": 0},
+                {"id": "top_end", "title": "Top end", "row": 0, "column": 1},
+                {"id": "bottom", "title": "Bottom", "row": 1, "column": 0},
+                {"id": "bottom_end", "title": "Bottom end", "row": 1, "column": 1},
+            ],
+            "edges": [{"from": "top", "to": "top_end"}],
+            "dividers": [{"after_row": 0}],
+        }
+    )
+    output = tmp_path / "dividers.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert svg.count('class="divider"') == 1
+    assert '<line class="divider" x1="126" y1="200" x2="674" y2="200"/>' in svg

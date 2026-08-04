@@ -62,6 +62,9 @@ curves automatically.
 Every diagram has nodes and edges. The original compact form remains valid and
 uses a 1440×360 horizontal layout:
 
+Set `"bidirectional": true` on an edge to render a single straight or curved
+connector with arrowheads at both ends.
+
 ```json
 {
   "nodes": [
@@ -109,6 +112,9 @@ The complete source for the diagram above is
 
 - `horizontal` places every node in one evenly spaced row.
 - `ring` places exactly five equal cards clockwise around a center annotation.
+- `grid` places nodes by `row` and `column`, sizes each column and row to its
+  largest node, and preserves equal `column_gap` and `row_gap` gutters. Set
+  `column_width` and `row_height` when every grid cell should use fixed dimensions.
 - `manual` uses each node's `x` and `y`; set shared `card_width` and
   `card_height` in `layout`, or override `width` and `height` on a node.
 
@@ -136,12 +142,34 @@ not raw SVG markup:
 }
 ```
 
+Use `"variant": "icon"` for a standalone icon with its `title` underneath and
+no surrounding card. Add `"show_label": false` when the icon should appear
+without a visible label; the title remains available to the diagram's
+accessible description. Set `"icon_size"` when a symbol needs an explicit
+override. Standalone `user`, `browser`, and `database` icons otherwise use the
+shared 56×56 px, 160×112 px, and 84×84 px dimension tokens respectively.
+
+Use `"variant": "plain"` for a card without its rectangle. The node keeps the
+same grid cell, icon column, and typography, but drops the fill, border, and
+shadow, so it reads as a label rather than a component. A plain node with an
+icon left-aligns its subtitle on the title axis because there is no card to
+center against.
+
+Add `"dividers"` to a grid diagram to separate rows with a dashed rule. Each
+entry takes `after_row`, and the rule is drawn halfway between that row and the
+one below it across the full grid width:
+
+```json
+"dividers": [{"after_row": 0}, {"after_row": 1}]
+```
+
 ### Components and tokens
 
 Node colors are `purple`, `blue`, `amber`, `green`, `red`, and `gray`.
 Available icons are `github`, `search`, `database`, `openai`, `issue`,
-`document`, `user`, `api`, `settings`, `pull-request`, `rank-fusion`,
-`message`, `video`, `sparkles`, `check`, `warning`, `close`, and `mention`.
+`document`, `user`, `browser`, `websocket`, `api`, `settings`, `pull-request`,
+`rank-fusion`, `message`, `video`, `sparkles`, `check`, `warning`, `close`,
+`mention`, `number-1`, `number-2`, and `number-3`.
 
 Cards use one component system: a 16 px inset, 28 px icon viewport, fixed text
 axis, centered subtitle, 2 px semantic border, 18 px radius, and a shared

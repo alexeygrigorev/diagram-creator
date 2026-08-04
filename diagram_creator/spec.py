@@ -11,9 +11,10 @@ class SpecError(ValueError):
 
 
 COLORS = {"purple", "blue", "amber", "green", "red", "gray"}
-LAYOUTS = {"horizontal", "manual", "ring"}
+LAYOUTS = {"horizontal", "manual", "grid", "ring"}
 ROUTES = {"forward", "below", "straight", "curve", "ring"}
 ANCHORS = {"left", "right", "top", "bottom"}
+NODE_VARIANTS = {"card", "icon", "plain"}
 ICONS = {
     "github",
     "search",
@@ -22,6 +23,8 @@ ICONS = {
     "issue",
     "document",
     "user",
+    "browser",
+    "websocket",
     "api",
     "settings",
     "pull-request",
@@ -33,6 +36,9 @@ ICONS = {
     "warning",
     "close",
     "mention",
+    "number-1",
+    "number-2",
+    "number-3",
 }
 
 
@@ -48,6 +54,10 @@ class Layout:
     type: str = "horizontal"
     card_width: float | None = None
     card_height: float | None = None
+    column_gap: float = 60
+    row_gap: float = 60
+    column_width: float | None = None
+    row_height: float | None = None
     direction: str = "clockwise"
 
 
@@ -59,10 +69,15 @@ class Node:
     color: str = "blue"
     icon: str | None = None
     eyebrow: str = ""
+    variant: str = "card"
+    show_label: bool = True
+    icon_size: float | None = None
     x: float | None = None
     y: float | None = None
     width: float | None = None
     height: float | None = None
+    row: int | None = None
+    column: int | None = None
 
 
 @dataclass(frozen=True)
@@ -75,6 +90,7 @@ class Edge:
     source_anchor: str | None = None
     target_anchor: str | None = None
     controls: tuple[tuple[float, float], tuple[float, float]] | None = None
+    bidirectional: bool = False
 
 
 @dataclass(frozen=True)
@@ -86,6 +102,11 @@ class CenterAnnotation:
 
 
 @dataclass(frozen=True)
+class Divider:
+    after_row: int
+
+
+@dataclass(frozen=True)
 class DiagramSpec:
     nodes: tuple[Node, ...]
     edges: tuple[Edge, ...]
@@ -94,6 +115,7 @@ class DiagramSpec:
     title: str = "Workflow diagram"
     description: str = ""
     center: CenterAnnotation | None = None
+    dividers: tuple[Divider, ...] = ()
 
     @property
     def background(self) -> str:
@@ -130,6 +152,15 @@ class DiagramSpec:
             for node in nodes:
                 if node.x is None or node.y is None:
                     raise SpecError("manual layout requires x and y for every node")
+        if layout.type == "grid":
+            cells: set[tuple[int, int]] = set()
+            for node in nodes:
+                if node.row is None or node.column is None:
+                    raise SpecError("grid layout requires row and column for every node")
+                cell = (node.row, node.column)
+                if cell in cells:
+                    raise SpecError("grid layout requires each node to use a unique cell")
+                cells.add(cell)
         if layout.type == "ring" and len(nodes) != 5:
             raise SpecError("ring layout currently requires exactly five nodes")
 
@@ -141,6 +172,7 @@ class DiagramSpec:
             raise SpecError("'description' must be a string")
 
         center = _parse_center(data.get("center"))
+        dividers = _parse_dividers(data.get("dividers"), layout, nodes)
         return cls(
             nodes=nodes,
             edges=edges,
@@ -149,6 +181,7 @@ class DiagramSpec:
             title=title,
             description=description,
             center=center,
+            dividers=dividers,
         )
 
 
@@ -176,10 +209,22 @@ def _parse_layout(data: Any) -> Layout:
         raise SpecError(f"layout type must be one of: {', '.join(sorted(LAYOUTS))}")
     card_width = _optional_number(data, "card_width", "layout")
     card_height = _optional_number(data, "card_height", "layout")
+    column_gap = data.get("column_gap", 60)
+    row_gap = data.get("row_gap", 60)
+    column_width = _optional_number(data, "column_width", "layout")
+    row_height = _optional_number(data, "row_height", "layout")
     if card_width is not None and card_width <= 0:
         raise SpecError("layout 'card_width' must be positive")
     if card_height is not None and card_height <= 0:
         raise SpecError("layout 'card_height' must be positive")
+    if not isinstance(column_gap, (int, float)) or isinstance(column_gap, bool) or column_gap < 0:
+        raise SpecError("layout 'column_gap' must be a non-negative number")
+    if not isinstance(row_gap, (int, float)) or isinstance(row_gap, bool) or row_gap < 0:
+        raise SpecError("layout 'row_gap' must be a non-negative number")
+    if column_width is not None and column_width <= 0:
+        raise SpecError("layout 'column_width' must be positive")
+    if row_height is not None and row_height <= 0:
+        raise SpecError("layout 'row_height' must be positive")
     direction = data.get("direction", "clockwise")
     if direction != "clockwise":
         raise SpecError("ring direction currently must be 'clockwise'")
@@ -187,6 +232,10 @@ def _parse_layout(data: Any) -> Layout:
         type=layout_type,
         card_width=card_width,
         card_height=card_height,
+        column_gap=float(column_gap),
+        row_gap=float(row_gap),
+        column_width=column_width,
+        row_height=row_height,
         direction=direction,
     )
 
@@ -200,6 +249,9 @@ def _parse_node(data: Any) -> Node:
     color = data.get("color", "blue")
     icon = data.get("icon")
     eyebrow = data.get("eyebrow", "")
+    variant = data.get("variant", "card")
+    show_label = data.get("show_label", True)
+    icon_size = _optional_number(data, "icon_size", f"node '{node_id}'")
     if not isinstance(subtitle, str):
         raise SpecError(f"node '{node_id}' subtitle must be a string")
     if color not in COLORS:
@@ -208,6 +260,16 @@ def _parse_node(data: Any) -> Node:
         raise SpecError(f"node '{node_id}' has unknown icon: {icon}")
     if not isinstance(eyebrow, str):
         raise SpecError(f"node '{node_id}' eyebrow must be a string")
+    if variant not in NODE_VARIANTS:
+        raise SpecError(
+            f"node '{node_id}' variant must be one of: {', '.join(sorted(NODE_VARIANTS))}"
+        )
+    if variant == "icon" and icon is None:
+        raise SpecError(f"node '{node_id}' with icon variant requires an icon")
+    if not isinstance(show_label, bool):
+        raise SpecError(f"node '{node_id}' show_label must be a boolean")
+    if icon_size is not None and icon_size <= 0:
+        raise SpecError(f"node '{node_id}' icon_size must be positive")
     width = _optional_number(data, "width", f"node '{node_id}'")
     height = _optional_number(data, "height", f"node '{node_id}'")
     if width is not None and width <= 0:
@@ -221,11 +283,25 @@ def _parse_node(data: Any) -> Node:
         color=color,
         icon=icon,
         eyebrow=eyebrow,
+        variant=variant,
+        show_label=show_label,
+        icon_size=icon_size,
         x=_optional_number(data, "x", f"node '{node_id}'"),
         y=_optional_number(data, "y", f"node '{node_id}'"),
         width=width,
         height=height,
+        row=_optional_nonnegative_int(data, "row", f"node '{node_id}'"),
+        column=_optional_nonnegative_int(data, "column", f"node '{node_id}'"),
     )
+
+
+def _optional_nonnegative_int(data: dict[str, Any], key: str, context: str) -> int | None:
+    value = data.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise SpecError(f"{context} '{key}' must be a non-negative integer")
+    return value
 
 
 def _parse_edge(data: Any) -> Edge:
@@ -238,6 +314,7 @@ def _parse_edge(data: Any) -> Edge:
     route = data.get("route", "forward")
     source_anchor = data.get("from_anchor")
     target_anchor = data.get("to_anchor")
+    bidirectional = data.get("bidirectional", False)
     if not isinstance(label, str):
         raise SpecError("edge label must be a string")
     if color not in COLORS:
@@ -248,6 +325,8 @@ def _parse_edge(data: Any) -> Edge:
         raise SpecError(f"edge from_anchor must be one of: {', '.join(sorted(ANCHORS))}")
     if target_anchor is not None and target_anchor not in ANCHORS:
         raise SpecError(f"edge to_anchor must be one of: {', '.join(sorted(ANCHORS))}")
+    if not isinstance(bidirectional, bool):
+        raise SpecError("edge bidirectional must be a boolean")
     controls = _parse_controls(data.get("controls"))
     if route == "curve" and controls is None:
         raise SpecError("a curve edge requires two control points")
@@ -260,6 +339,7 @@ def _parse_edge(data: Any) -> Edge:
         source_anchor=source_anchor,
         target_anchor=target_anchor,
         controls=controls,
+        bidirectional=bidirectional,
     )
 
 
@@ -277,6 +357,27 @@ def _parse_controls(data: Any) -> tuple[tuple[float, float], tuple[float, float]
             raise SpecError("edge control point coordinates must be numbers")
         points.append((float(x), float(y)))
     return points[0], points[1]
+
+
+def _parse_dividers(data: Any, layout: Layout, nodes: tuple[Node, ...]) -> tuple[Divider, ...]:
+    if data is None:
+        return ()
+    if not isinstance(data, list):
+        raise SpecError("'dividers' must be a list")
+    if layout.type != "grid":
+        raise SpecError("'dividers' currently requires the grid layout")
+    rows = sorted({node.row for node in nodes if node.row is not None})
+    dividers = []
+    for item in data:
+        if not isinstance(item, dict):
+            raise SpecError("each divider must be an object")
+        after_row = item.get("after_row")
+        if not isinstance(after_row, int) or isinstance(after_row, bool):
+            raise SpecError("divider after_row must be an integer")
+        if after_row not in rows or after_row == rows[-1]:
+            raise SpecError(f"divider after_row {after_row} has no row below it")
+        dividers.append(Divider(after_row=after_row))
+    return tuple(dividers)
 
 
 def _parse_center(data: Any) -> CenterAnnotation | None:
