@@ -19,8 +19,8 @@ STEP_EDGE = re.compile(
 )
 
 
-def ring_spec(width, height, *, count=5, margin=None):
-    layout = {"type": "ring", "card_width": 220, "card_height": 90}
+def ring_spec(width, height, *, count=5, margin=None, card=(220, 90)):
+    layout = {"type": "ring", "card_width": card[0], "card_height": card[1]}
     if margin is not None:
         layout["margin"] = margin
     return DiagramSpec.from_dict(
@@ -420,23 +420,56 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     assert "Each failure improves the data" in svg
 
 
-def test_ring_connectors_are_one_arc_repeated(tmp_path):
+def ring_arcs(svg):
+    return [
+        tuple(float(v) for v in edge)
+        for edge in re.findall(
+            r'<path class="edge" d="M([-\d.]+) ([-\d.]+)A([\d.]+) [\d.]+ 0 0 1 ([-\d.]+) ([-\d.]+)"',
+            svg,
+        )
+    ]
+
+
+def test_ring_connectors_touch_the_cards_they_join(tmp_path):
     spec = ring_spec(1000, 1000)
     output = tmp_path / "loop.svg"
 
     render_diagram(spec, output)
 
-    edges = re.findall(
-        r'<path class="edge" d="M([-\d.]+) ([-\d.]+)A([\d.]+) [\d.]+ 0 0 1 ([-\d.]+) ([-\d.]+)"',
-        output.read_text(),
-    )
-    assert len(edges) == 5
-    # One angular standoff for every card means every connector is the same arc
-    # of the same circle, only rotated - identical chord, identical radius.
-    chords = [math.hypot(float(e[3]) - float(e[0]), float(e[4]) - float(e[1])) for e in edges]
-    radii = [float(e[2]) for e in edges]
-    assert max(chords) - min(chords) < 0.5
-    assert max(radii) - min(radii) < 0.5
+    svg = output.read_text()
+    arcs = ring_arcs(svg)
+    assert len(arcs) == 5
+    boxes = [
+        (x, y, x + 220, y + 90) for x, y in (map(float, n) for n in NODE_TRANSFORM.findall(svg))
+    ]
+
+    def off_card(point):
+        """How far a point sits from the nearest card's outline."""
+        return min(
+            max(x0 - point[0], point[0] - x1, y0 - point[1], point[1] - y1, 0)
+            + max(min(point[0] - x0, x1 - point[0], point[1] - y0, y1 - point[1]), 0)
+            for x0, y0, x1, y1 in boxes
+        )
+
+    # Each end stops where the circle crosses a card's edge, so it meets the card
+    # rather than floating off it.
+    for start_x, start_y, _, end_x, end_y in arcs:
+        assert off_card((start_x, start_y)) < 1.5
+        assert off_card((end_x, end_y)) < 1.5
+
+
+def test_ring_arcs_are_near_equal_on_a_square_card(tmp_path):
+    # Touching every card is exact; equal arc lengths are not, because a card
+    # presents a different angular width at each slot. It converges as the card
+    # approaches square, so that is the shape a loop should aim for.
+    output = tmp_path / "loop.svg"
+    spreads = []
+    for card in ((220, 90), (195, 176)):
+        render_diagram(ring_spec(875, 826, card=card), output)
+        chords = [math.hypot(a[3] - a[0], a[4] - a[1]) for a in ring_arcs(output.read_text())]
+        spreads.append((max(chords) - min(chords)) / min(chords))
+    assert spreads[1] < spreads[0]
+    assert spreads[1] < 0.15
 
 
 def test_center_detail_sits_clear_of_the_annotation_circle(tmp_path):
@@ -657,12 +690,18 @@ def test_card_with_an_icon_shares_one_text_axis_and_centers_its_block(tmp_path):
     )
     # Icon and title form one group centered on the card, so both lines share
     # the card's center axis and neither leaves the far half of the card empty.
-    from diagram_creator.renderer import TITLE_SIZE, TITLE_WEIGHT, _text_width
+    from diagram_creator.renderer import (
+        ICON_GUTTER,
+        ICON_SIZE,
+        TITLE_SIZE,
+        TITLE_WEIGHT,
+        _text_width,
+    )
 
     group_end = title_x + _text_width("Docs", TITLE_SIZE, TITLE_WEIGHT)
     assert (icon_x + group_end) / 2 == pytest.approx(240 / 2, abs=0.5)
     assert subtitle_x == pytest.approx(240 / 2, abs=0.5)
-    assert title_x == pytest.approx(icon_x + 28 + 12, abs=0.5)
+    assert title_x == pytest.approx(icon_x + ICON_SIZE + ICON_GUTTER, abs=0.5)
     # Icon top through subtitle descender is centered on the 110px card.
     assert (icon_y + subtitle_y + 4) / 2 == pytest.approx(55, abs=2)
 

@@ -31,10 +31,10 @@
     <style>
       text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172033; }
       .node rect { stroke-width: 2; }
-      .node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
+      .node-title { font-size: 20px; font-weight: 750; text-anchor: middle; }
       .node-title.icon-copy { text-anchor: start; }
-      .node-subtitle { font-size: 13px; font-weight: 500; fill: #7a8699; text-anchor: middle; }
-      .eyebrow { font-size: 12px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
+      .node-subtitle { font-size: 16px; font-weight: 500; fill: #7a8699; text-anchor: middle; }
+      .eyebrow { font-size: 13px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
       .mention-icon { font-size: 27px; font-weight: 750; text-anchor: middle; }
       .standalone-mention { font-size: 52px; font-weight: 750; text-anchor: middle; }
       .icon-node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
@@ -56,32 +56,32 @@
 
   <g class="node node-blue" transform="translate(30 40)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <use href="#icon-document" x="26.1" y="20" width="28" height="28" color="#2563eb"/>
-    <text class="node-title icon-copy" x="66.1" y="40">Documentation</text>
-    <text class="node-subtitle" x="115" y="66">Published guides</text>
+    <use href="#icon-document" x="13" y="15" width="34" height="34" color="#2563eb"/>
+    <text class="node-title icon-copy" x="59" y="35" textLength="158" lengthAdjust="spacingAndGlyphs">Documentation</text>
+    <text class="node-subtitle" x="115" y="70">Published guides</text>
   </g>
   <g class="node node-blue" transform="translate(30 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <use href="#icon-github" x="35.77" y="20" width="28" height="28" color="#2563eb"/>
-    <text class="node-title icon-copy" x="75.77" y="40">Course repos</text>
-    <text class="node-subtitle" x="115" y="66">Markdown files</text>
+    <use href="#icon-github" x="17.97" y="15" width="34" height="34" color="#2563eb"/>
+    <text class="node-title icon-copy" x="63.97" y="35">Course repos</text>
+    <text class="node-subtitle" x="115" y="70">Markdown files</text>
   </g>
   <g class="node node-green" transform="translate(30 320)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#ecfdf5" stroke="#15803d"/>
-    <use href="#icon-database" x="39.52" y="20" width="28" height="28" color="#15803d"/>
-    <text class="node-title icon-copy" x="79.52" y="40">FAQ dataset</text>
-    <text class="node-subtitle" x="115" y="66">Reviewed records</text>
+    <use href="#icon-database" x="22.65" y="15" width="34" height="34" color="#15803d"/>
+    <text class="node-title icon-copy" x="68.65" y="35">FAQ dataset</text>
+    <text class="node-subtitle" x="115" y="70">Reviewed records</text>
   </g>
   <g class="node node-amber" transform="translate(435 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#fff7ed" stroke="#c2410c"/>
-    <use href="#icon-settings" x="44.62" y="20" width="28" height="28" color="#c2410c"/>
-    <text class="node-title icon-copy" x="84.62" y="40">Build index</text>
-    <text class="node-subtitle" x="115" y="66">Combine all sources</text>
+    <use href="#icon-settings" x="29.03" y="15" width="34" height="34" color="#c2410c"/>
+    <text class="node-title icon-copy" x="75.03" y="35">Build index</text>
+    <text class="node-subtitle" x="115" y="70">Combine all sources</text>
   </g>
   <g class="node node-purple" transform="translate(840 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
-    <use href="#icon-search" x="32.77" y="20" width="28" height="28" color="#7c3aed"/>
-    <text class="node-title icon-copy" x="72.77" y="40">FAQ assistant</text>
-    <text class="node-subtitle" x="115" y="66">Fresh search in Lambda</text>
+    <use href="#icon-search" x="14.22" y="15" width="34" height="34" color="#7c3aed"/>
+    <text class="node-title icon-copy" x="60.22" y="35">FAQ assistant</text>
+    <text class="node-subtitle" x="115" y="70">Fresh search in Lambda</text>
   </g>
 </svg>

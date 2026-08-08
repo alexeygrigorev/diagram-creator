@@ -31,10 +31,10 @@
     <style>
       text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172033; }
       .node rect { stroke-width: 2; }
-      .node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
+      .node-title { font-size: 20px; font-weight: 750; text-anchor: middle; }
       .node-title.icon-copy { text-anchor: start; }
-      .node-subtitle { font-size: 13px; font-weight: 500; fill: #7a8699; text-anchor: middle; }
-      .eyebrow { font-size: 12px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
+      .node-subtitle { font-size: 16px; font-weight: 500; fill: #7a8699; text-anchor: middle; }
+      .eyebrow { font-size: 13px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
       .mention-icon { font-size: 27px; font-weight: 750; text-anchor: middle; }
       .standalone-mention { font-size: 52px; font-weight: 750; text-anchor: middle; }
       .icon-node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
@@ -56,32 +56,32 @@
 
   <g class="node node-gray" transform="translate(40 500)" filter="url(#shadow)">
     <rect width="280" height="96" rx="18" fill="#f8fafc" stroke="#64748b"/>
-    <use href="#icon-database" x="89.3" y="23" width="28" height="28" color="#64748b"/>
-    <text class="node-title icon-copy" x="129.3" y="43">Collect</text>
-    <text class="node-subtitle" x="140" y="69">Events land in the warehouse</text>
+    <use href="#icon-database" x="78.62" y="18" width="34" height="34" color="#64748b"/>
+    <text class="node-title icon-copy" x="124.62" y="38">Collect</text>
+    <text class="node-subtitle" x="140" y="73">Events land in the warehouse</text>
   </g>
   <g class="node node-blue" transform="translate(250 386)" filter="url(#shadow)">
     <rect width="280" height="96" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <use href="#icon-document" x="89.45" y="23" width="28" height="28" color="#2563eb"/>
-    <text class="node-title icon-copy" x="129.45" y="43">Report</text>
-    <text class="node-subtitle" x="140" y="69">What happened last week</text>
+    <use href="#icon-document" x="78.81" y="18" width="34" height="34" color="#2563eb"/>
+    <text class="node-title icon-copy" x="124.81" y="38">Report</text>
+    <text class="node-subtitle" x="140" y="73">What happened last week</text>
   </g>
   <g class="node node-purple" transform="translate(460 272)" filter="url(#shadow)">
     <rect width="280" height="96" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
-    <use href="#icon-search" x="87.15" y="23" width="28" height="28" color="#7c3aed"/>
-    <text class="node-title icon-copy" x="127.15" y="43">Explain</text>
-    <text class="node-subtitle" x="140" y="69">Why the numbers moved</text>
+    <use href="#icon-search" x="75.94" y="18" width="34" height="34" color="#7c3aed"/>
+    <text class="node-title icon-copy" x="121.94" y="38">Explain</text>
+    <text class="node-subtitle" x="140" y="73">Why the numbers moved</text>
   </g>
   <g class="node node-amber" transform="translate(670 158)" filter="url(#shadow)">
     <rect width="280" height="96" rx="18" fill="#fff7ed" stroke="#c2410c"/>
-    <use href="#icon-sparkles" x="87.8" y="23" width="28" height="28" color="#c2410c"/>
-    <text class="node-title icon-copy" x="127.8" y="43">Predict</text>
-    <text class="node-subtitle" x="140" y="69">What happens next</text>
+    <use href="#icon-sparkles" x="76.75" y="18" width="34" height="34" color="#c2410c"/>
+    <text class="node-title icon-copy" x="122.75" y="38">Predict</text>
+    <text class="node-subtitle" x="140" y="73">What happens next</text>
   </g>
   <g class="node node-green" transform="translate(880 44)" filter="url(#shadow)">
     <rect width="280" height="96" rx="18" fill="#ecfdf5" stroke="#15803d"/>
-    <use href="#icon-settings" x="75.95" y="23" width="28" height="28" color="#15803d"/>
-    <text class="node-title icon-copy" x="115.95" y="43">Automate</text>
-    <text class="node-subtitle" x="140" y="69">The system decides and acts</text>
+    <use href="#icon-settings" x="61.94" y="18" width="34" height="34" color="#15803d"/>
+    <text class="node-title icon-copy" x="107.94" y="38">Automate</text>
+    <text class="node-subtitle" x="140" y="73">The system decides and acts</text>
   </g>
 </svg>

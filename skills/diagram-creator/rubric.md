@@ -48,22 +48,29 @@ identical radius and identical length. Curvature and length are both things the
 eye compares, so a connector that is shorter, or on a tighter radius, reads as a
 different shape even when its endpoints are right.
 
-Check: chord length and arc radius of every connector. Both spreads under 0.5 px.
-Fails when: connectors are clipped per-card instead of sharing one angular
-standoff, which makes each arc a different length. Take the widest standoff any
-card needs and give it to all of them.
+Check: chord length and arc radius of every connector. Radius spread under
+0.5 px always; chord spread under about 10 percent.
+
+Equal chords and touching cards pull against each other. Forcing one shared
+angular standoff makes the chords identical but then only the card needing the
+widest standoff is actually touched. Touching every card is the one to keep, and
+chord equality then depends on the card shape: a card presents a different
+angular width at each slot unless it is close to square. It converges near
+h = 0.95w, but that ratio also brings adjacent cards almost together, so aim for
+square-ish rather than exact.
 
 The same applies to a staircase, where every connector should be one elbow
 translated: identical horizontal run, identical vertical run, identical corner
 radius.
 
-### 3. Connectors attach cleanly
+### 3. Connectors touch the cards they join
 
-A connector leaves a card beside one of its sides, never past a corner, and
-never sags behind or underneath a card.
+A connector meets the card at each end. A connector that stops short reads as
+broken, and the gap is more visible than any amount of curvature polish.
 
-Check: each endpoint is within the card's vertical span or its horizontal span.
-Compute the arc's deepest point and confirm it stays inside the cards.
+Check: each endpoint sits on a card's outline, within about a pixel. Bisect for
+the crossing rather than sampling it - stepping along the arc leaves the
+endpoint off by the step size, which is a visible pixel or two at ring scale.
 
 ### 4. Nodes are clearly separated
 
@@ -163,3 +170,18 @@ A five-node loop scored across one session:
 
 The lesson from that middle step: a criterion sampled on one instance is not
 checked. Measure every pair, every connector, every card.
+
+## The criteria that fight each other
+
+Several criteria cannot be maximised together, so decide the priority before
+tuning rather than chasing each complaint in turn:
+
+- Even gaps (4) want cards small relative to the radius. Short connectors and a
+  compact canvas want the opposite.
+- Equal chords (2) want a square-ish card. Even gaps (4) want a wide flat one.
+- A compact canvas reads better on a phone - it is scaled down less, so every
+  size on it survives - but leaves less room for everything else.
+
+For a diagram that will be read on a phone, start from the canvas: pick the
+smallest one that still holds the content, then let the type sizes follow. A
+1180 px canvas on a 390 px screen shrinks 20 px type to under 7 px.

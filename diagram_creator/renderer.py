@@ -55,7 +55,7 @@ PALETTES = {
 
 EDGE_COLORS = {name: palette.stroke for name, palette in PALETTES.items()}
 RING_MARGIN = 40
-RING_EDGE_GAP = 12
+RING_EDGE_GAP = 0
 RING_ARC_SAMPLES = 240
 RING_CARD_GAP = 24
 STAIRCASE_MARGIN = 40
@@ -66,16 +66,18 @@ STAIRCASE_STEP_GAP = 18
 STAIRCASE_MIN_ADVANCE = 0.6
 STEP_CORNER = 12
 ICON_GUTTER = 12
-TITLE_SIZE, TITLE_WEIGHT = 16, 750
-SUBTITLE_SIZE, SUBTITLE_WEIGHT = 13, 500
-DETAIL_SIZE, DETAIL_WEIGHT = 16, 500
+ICON_SIZE = 34
+TITLE_SIZE, TITLE_WEIGHT = 20, 750
+SUBTITLE_SIZE, SUBTITLE_WEIGHT = 16, 500
+DETAIL_SIZE, DETAIL_WEIGHT = 16, 600
 ANNOTATION_PADDING = 14
 CENTER_TITLE_RATIO, CENTER_DETAIL_RATIO = 0.22, 0.72
 CENTER_TITLE_MIN, CENTER_TITLE_MAX = 16, 44
 CENTER_TRACKING = 0.08
-EYEBROW_INK, EYEBROW_GAP = 9, 9
-SUBTITLE_GAP, SUBTITLE_ASCENT, SUBTITLE_DESCENT = 8, 10, 4
-SUBTITLE_LINE, SUBTITLE_LINES = 18, 3
+CENTER_DETAIL_LINES = 3
+EYEBROW_INK, EYEBROW_GAP = 10, 10
+SUBTITLE_GAP, SUBTITLE_ASCENT, SUBTITLE_DESCENT = 9, 12, 5
+SUBTITLE_LINE, SUBTITLE_LINES = 22, 3
 # Advance widths per 1 px of font size for the card font stack, measured out of
 # Chromium by scripts/measure_text.py. Widths scale linearly with font size to
 # within 0.1 px, so one table per weight covers every size the cards use.
@@ -595,14 +597,25 @@ def _ring_cards_clear(
     sizes: list[tuple[float, float]],
     radius: float,
 ) -> bool:
-    """True when every pair of cards keeps a visible gap at this radius."""
+    """True when every pair of cards keeps a visible gap at this radius.
+
+    Measured edge to edge, not as padded bounding boxes: two cards set apart on a
+    diagonal are well clear of each other even when both their x and y spans
+    overlap once padding is added.
+    """
     for first in range(len(offsets)):
         for second in range(first + 1, len(offsets)):
-            gap_x = abs(offsets[first][0] - offsets[second][0]) * radius
-            gap_y = abs(offsets[first][1] - offsets[second][1]) * radius
-            span_x = (sizes[first][0] + sizes[second][0]) / 2 + RING_CARD_GAP
-            span_y = (sizes[first][1] + sizes[second][1]) / 2 + RING_CARD_GAP
-            if gap_x < span_x and gap_y < span_y:
+            gap_x = (
+                abs(offsets[first][0] - offsets[second][0]) * radius
+                - (sizes[first][0] + sizes[second][0]) / 2
+            )
+            gap_y = (
+                abs(offsets[first][1] - offsets[second][1]) * radius
+                - (sizes[first][1] + sizes[second][1]) / 2
+            )
+            if gap_x < 0 and gap_y < 0:
+                return False
+            if math.hypot(max(gap_x, 0), max(gap_y, 0)) < RING_CARD_GAP:
                 return False
     return True
 
@@ -660,8 +673,10 @@ def _wrap_lines(text: str, available: float, size: int, weight: int, limit: int)
 
 
 def _text_width(text: str, size: int, weight: int) -> float:
-    table = CHARACTER_EM[weight]
-    fallback = FALLBACK_EM[weight]
+    # A weight without its own table measures against the next heavier one, so an
+    # estimate is never short and text never overflows the column it was sized for.
+    measured = min((known for known in CHARACTER_EM if known >= weight), default=max(CHARACTER_EM))
+    table, fallback = CHARACTER_EM[measured], FALLBACK_EM[measured]
     return size * sum(table.get(character, fallback) for character in text)
 
 
@@ -677,7 +692,7 @@ def _draw_node(node: Node, box: Box) -> str:
     if node.variant == "icon":
         return _draw_icon_node(node, box, palette)
     plain = node.variant == "plain"
-    icon_size = 28
+    icon_size = ICON_SIZE
     compact = box.height < 80
     subtitle_lines = (
         _wrap_lines(node.subtitle, box.width - 32, SUBTITLE_SIZE, SUBTITLE_WEIGHT, SUBTITLE_LINES)
@@ -875,43 +890,37 @@ def _ring_path(
         raise SpecError("ring edges must connect each node to the next node in JSON order")
     ring = _ring_geometry(spec, width, height)
     span = 2 * math.pi / ring.count
-    pad = _ring_pad(spec, ring, boxes)
-    if pad is None:
+    if not _ring_arcs_are_clean(spec, ring, boxes):
         # The circle leaves a card past its corner, so following it would sag
         # behind the cards. Join the facing sides instead, on the ring's radius.
         return _ring_chord_arc(edge, boxes, ring)
-    # One pad for every connector, so all of them are the same arc of the same
-    # circle, merely rotated - identical length, identical curvature.
-    start = ring.angle(source_index) + pad
-    end = ring.angle(source_index) + span - pad
+    # Each end stops exactly where the circle crosses that card's edge, so every
+    # connector meets the cards it joins. Equal arc lengths then come from the
+    # card proportions - see the ring section of the skill for the ratio.
+    start = _ring_exit(ring, boxes[edge.source], ring.angle(source_index), span)
+    end = _ring_exit(ring, boxes[edge.target], ring.angle(source_index) + span, -span)
     radius = _number(ring.radius)
     path = f"M{_point(ring.point(start))}A{radius} {radius} 0 0 1 {_point(ring.point(end))}"
     return path, ring.point((start + end) / 2)
 
 
-def _ring_pad(spec: DiagramSpec, ring: Ring, boxes: dict[str, Box]) -> float | None:
-    """The one angular standoff that clears every card, or None if a card blocks it.
-
-    Taking the widest standoff any card needs and giving it to all of them makes
-    every connector the same arc of the same circle, only rotated.
-    """
+def _ring_arcs_are_clean(spec: DiagramSpec, ring: Ring, boxes: dict[str, Box]) -> bool:
+    """True when following the circle never cuts back through a card."""
     span = 2 * math.pi / ring.count
-    pad = 0.0
-    for index, node in enumerate(spec.nodes):
-        box = boxes[node.id]
-        angle = ring.angle(index)
-        for direction in (1, -1):
-            pad = max(pad, abs(_ring_exit(ring, box, angle, direction * span) - angle))
-    pad = min(pad, span * 0.45)
-
     cards = list(boxes.values())
-    for index in range(ring.count):
-        start = ring.angle(index) + pad
+    for index, node in enumerate(spec.nodes):
+        angle = ring.angle(index)
+        start = _ring_exit(ring, boxes[node.id], angle, span)
+        end = _ring_exit(
+            ring, boxes[spec.nodes[(index + 1) % len(spec.nodes)].id], angle + span, -span
+        )
+        if end <= start:
+            return False
         for step in range(RING_ARC_SAMPLES + 1):
-            x, y = ring.point(start + (span - 2 * pad) * step / RING_ARC_SAMPLES)
-            if any(c.x <= x <= c.right and c.y <= y <= c.bottom for c in cards):
-                return None
-    return pad
+            x, y = ring.point(start + (end - start) * step / RING_ARC_SAMPLES)
+            if any(c.x < x < c.right and c.y < y < c.bottom for c in cards):
+                return False
+    return True
 
 
 def _ring_chord_arc(
@@ -944,20 +953,28 @@ def _ring_chord_arc(
 
 
 def _ring_exit(ring: Ring, box: Box, angle: float, span: float) -> float:
-    """Walk along the arc away from one card until the path clears it."""
-    for step in range(RING_ARC_SAMPLES + 1):
-        candidate = angle + span * step / RING_ARC_SAMPLES
-        x, y = ring.point(candidate)
-        clear = (
+    """The angle at which the circle crosses one card's edge, to sub-pixel accuracy."""
+
+    def clear(offset: float) -> bool:
+        x, y = ring.point(angle + offset)
+        return (
             x < box.x - RING_EDGE_GAP
             or x > box.right + RING_EDGE_GAP
             or y < box.y - RING_EDGE_GAP
             or y > box.bottom + RING_EDGE_GAP
         )
-        if clear:
-            return candidate
-    # The cards are packed tight enough to swallow the whole arc; keep a visible stub.
-    return angle + span * 0.4
+
+    if not clear(span):
+        # The cards are packed tight enough to swallow the whole arc; keep a stub.
+        return angle + span * 0.4
+    low, high = 0.0, 1.0
+    for _ in range(40):
+        mid = (low + high) / 2
+        if clear(span * mid):
+            high = mid
+        else:
+            low = mid
+    return angle + span * high
 
 
 def _direct_path(
@@ -1082,41 +1099,73 @@ def _draw_center(spec: DiagramSpec, width: int, height: int) -> str:
     # overflow, so the type is sized from the circle and then shrunk until the
     # widest line genuinely fits the chord it sits on.
     title_size = _fitted_size(center, center.radius * CENTER_TITLE_RATIO, TITLE_WEIGHT)
-    detail_size = round(title_size * CENTER_DETAIL_RATIO)
     line = round(title_size * 1.35)
-    title_y = y - line / 2 + title_size / 3 if center.subtitle else y + title_size / 3
     lines = [
         f'  <circle class="center-annotation" cx="{_number(x)}" cy="{_number(y)}" '
-        f'r="{_number(center.radius)}"/>',
-        f'  <text class="center-title" x="{_number(x)}" y="{_number(title_y)}" '
-        f'font-size="{title_size}">{escape(center.title)}</text>',
+        f'r="{_number(center.radius)}"/>'
     ]
-    if center.subtitle:
+    if center.title:
+        title_y = y - line / 2 + title_size / 3 if center.subtitle else y + title_size / 3
         lines.append(
-            f'  <text class="center-title" x="{_number(x)}" '
-            f'y="{_number(title_y + line)}" font-size="{title_size}">'
-            f"{escape(center.subtitle)}</text>"
+            f'  <text class="center-title" x="{_number(x)}" y="{_number(title_y)}" '
+            f'font-size="{title_size}">{escape(center.title)}</text>'
         )
+        if center.subtitle:
+            lines.append(
+                f'  <text class="center-title" x="{_number(x)}" '
+                f'y="{_number(title_y + line)}" font-size="{title_size}">'
+                f"{escape(center.subtitle)}</text>"
+            )
     if center.detail:
-        # The detail carries the meaning, so keep it inside the annotation when the
-        # circle is wide enough to hold it there, and drop it below as a caption
-        # only when it would otherwise cut through the edge.
-        inside_y = (title_y + line if center.subtitle else title_y) + detail_size * 1.7
-        half_chord = _circle_half_width(center.radius, inside_y - y)
-        fits = _text_width(center.detail, detail_size, DETAIL_WEIGHT) + 2 * ANNOTATION_PADDING
-        detail_y = inside_y if fits <= 2 * half_chord else y + center.radius + detail_size + 8
-        lines.append(
-            f'  <text class="center-detail" x="{_number(x)}" y="{_number(detail_y)}" '
-            f'font-size="{detail_size}">{escape(center.detail)}</text>'
-        )
+        # With a heading above it the detail is a caption on one line. On its own
+        # it is the annotation, so it takes the heading's size and wraps to fill
+        # the circle rather than running out of it.
+        if center.title:
+            detail_size = round(title_size * CENTER_DETAIL_RATIO)
+            baseline = (title_y + line if center.subtitle else title_y) + detail_size * 1.7
+            detail_lines = [center.detail]
+        else:
+            detail_size, detail_lines = _fitted_detail(center)
+            baseline = y - (len(detail_lines) - 1) * detail_size * 1.35 / 2 + detail_size / 3
+        step = detail_size * 1.35
+        for index, text in enumerate(detail_lines):
+            at = baseline + index * step
+            room = 2 * _circle_half_width(center.radius, at - y) - 2 * ANNOTATION_PADDING
+            if _text_width(text, detail_size, DETAIL_WEIGHT) > room:
+                at = y + center.radius + detail_size + 8 + index * step
+            lines.append(
+                f'  <text class="center-detail" x="{_number(x)}" y="{_number(at)}" '
+                f'font-size="{detail_size}">{escape(text)}</text>'
+            )
     return "\n".join(lines)
 
 
+def _fitted_detail(center: CenterAnnotation) -> tuple[int, list[str]]:
+    """Largest size at which the detail wraps to lines that all clear the circle."""
+    wanted = round(min(center.radius * CENTER_TITLE_RATIO, CENTER_TITLE_MAX))
+    for size in range(wanted, CENTER_TITLE_MIN - 1, -1):
+        room = 2 * center.radius - 2 * ANNOTATION_PADDING
+        wrapped = _wrap_lines(center.detail, room, size, DETAIL_WEIGHT, CENTER_DETAIL_LINES)
+        step = size * 1.35
+        top = -(len(wrapped) - 1) * step / 2
+        if all(
+            _text_width(text, size, DETAIL_WEIGHT)
+            <= 2 * _circle_half_width(center.radius, top + index * step + size / 2)
+            - 2 * ANNOTATION_PADDING
+            for index, text in enumerate(wrapped)
+        ):
+            return size, wrapped
+    return CENTER_TITLE_MIN, [center.detail]
+
+
 def _fitted_size(center: CenterAnnotation, wanted: float, weight: int) -> int:
-    """Largest title size at or below `wanted` whose longest line clears the circle."""
-    longest = max([center.title, center.subtitle], key=len)
+    """Largest size at or below `wanted` whose longest line clears the circle."""
+    longest = max([center.title, center.subtitle] or [""], key=len)
+    tracked = weight == TITLE_WEIGHT and bool(center.title)
+    if not longest:
+        longest = center.detail
     for size in range(round(min(wanted, CENTER_TITLE_MAX)), CENTER_TITLE_MIN - 1, -1):
-        letter_spacing = size * CENTER_TRACKING * len(longest)
+        letter_spacing = size * CENTER_TRACKING * len(longest) if tracked else 0
         room = 2 * _circle_half_width(center.radius, size) - 2 * ANNOTATION_PADDING
         if _text_width(longest, size, weight) + letter_spacing <= room:
             return size
@@ -1154,10 +1203,10 @@ def _style() -> str:
     return """<style>
   text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172033; }
   .node rect { stroke-width: 2; }
-  .node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
+  .node-title { font-size: 20px; font-weight: 750; text-anchor: middle; }
   .node-title.icon-copy { text-anchor: start; }
-  .node-subtitle { font-size: 13px; font-weight: 500; fill: #7a8699; text-anchor: middle; }
-  .eyebrow { font-size: 12px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
+  .node-subtitle { font-size: 16px; font-weight: 500; fill: #7a8699; text-anchor: middle; }
+  .eyebrow { font-size: 13px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
   .mention-icon { font-size: 27px; font-weight: 750; text-anchor: middle; }
   .standalone-mention { font-size: 52px; font-weight: 750; text-anchor: middle; }
   .icon-node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }

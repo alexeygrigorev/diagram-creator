@@ -99,7 +99,7 @@ class Edge:
 
 @dataclass(frozen=True)
 class CenterAnnotation:
-    title: str
+    title: str = ""
     subtitle: str = ""
     detail: str = ""
     radius: float = 68
@@ -409,12 +409,14 @@ def _parse_center(data: Any) -> CenterAnnotation | None:
         return None
     if not isinstance(data, dict):
         raise SpecError("'center' must be an object")
-    title = _required_string(data, "title", "center annotation")
+    title = data.get("title", "")
     subtitle = data.get("subtitle", "")
     detail = data.get("detail", "")
     radius = data.get("radius", 68)
-    if not isinstance(subtitle, str) or not isinstance(detail, str):
-        raise SpecError("center annotation subtitle and detail must be strings")
+    if not all(isinstance(value, str) for value in (title, subtitle, detail)):
+        raise SpecError("center annotation title, subtitle and detail must be strings")
+    if not (title or detail):
+        raise SpecError("center annotation needs a 'title' or a 'detail'")
     if not _is_number(radius) or radius <= 0:
         raise SpecError("center annotation radius must be a positive number")
     return CenterAnnotation(title=title, subtitle=subtitle, detail=detail, radius=float(radius))
