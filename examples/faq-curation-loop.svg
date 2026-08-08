@@ -12,8 +12,8 @@
     <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#dc2626"/></marker>
     <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#64748b"/></marker>
     <symbol id="icon-database" viewBox="0 0 24 24">
-        <ellipse cx="12" cy="5" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke"/>
-        <path d="M4 5v7c0 1.66 3.58 3 8 3s8-1.34 8-3V5M4 12v7c0 1.66 3.58 3 8 3s8-1.34 8-3v-7" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke"/>
+        <ellipse cx="12" cy="5" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M4 5v7c0 1.66 3.58 3 8 3s8-1.34 8-3V5M4 12v7c0 1.66 3.58 3 8 3s8-1.34 8-3v-7" fill="none" stroke="currentColor" stroke-width="2"/>
       </symbol>
     <symbol id="icon-issue" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -75,7 +75,7 @@
   <g class="node node-green" transform="translate(525.41 635.32)" filter="url(#shadow)">
     <rect width="260" height="247" rx="18" fill="#ecfdf5" stroke="#15803d"/>
     <use href="#icon-database" x="43.67" y="82.5" width="34" height="34" color="#15803d"/>
-    <text class="node-title icon-copy" x="84.3" y="104.9" font-size="15">Index + deploy</text>
+    <text class="node-title icon-copy" x="85.42" y="104.9" font-size="15">Index + deploy</text>
     <text class="node-subtitle" x="130" y="137.5" font-size="16">Fresh dataset ships with</text>
     <text class="node-subtitle" x="130" y="159.5" font-size="16">Lambda</text>
   </g>

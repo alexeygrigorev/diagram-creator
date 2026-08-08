@@ -220,7 +220,6 @@ def test_renders_browser_and_websocket_symbols(tmp_path):
     assert '<symbol id="icon-websocket"' in svg
     assert 'href="#icon-browser"' in svg
     assert 'href="#icon-websocket"' in svg
-    assert 'vector-effect="non-scaling-stroke"' in svg
 
 
 def test_renders_an_icon_node_with_its_label_but_without_a_card(tmp_path):
@@ -319,8 +318,10 @@ def test_uses_reusable_sizes_for_standalone_browser_and_database_icons(tmp_path)
     svg = output.read_text()
     assert 'href="#icon-browser" x="0" y="0" width="160" height="112"' in svg
     assert 'href="#icon-database" x="0" y="0" width="84" height="84"' in svg
+    # Stroke weight scales with the glyph everywhere, so one value reads the same
+    # in a card and standalone. A fixed device width would not.
     database_symbol = svg.split('<symbol id="icon-database"', 1)[1].split("</symbol>", 1)[0]
-    assert database_symbol.count('vector-effect="non-scaling-stroke"') == 2
+    assert "non-scaling-stroke" not in database_symbol
 
     user_spec = DiagramSpec.from_dict(
         {
@@ -336,7 +337,7 @@ def test_uses_reusable_sizes_for_standalone_browser_and_database_icons(tmp_path)
     user_symbol = (
         user_output.read_text().split('<symbol id="icon-user"', 1)[1].split("</symbol>", 1)[0]
     )
-    assert user_symbol.count('vector-effect="non-scaling-stroke"') == 2
+    assert "non-scaling-stroke" not in user_symbol
 
 
 def test_renders_a_five_node_ring_as_svg(tmp_path):
@@ -456,6 +457,44 @@ def test_ring_connectors_touch_the_cards_they_join(tmp_path):
     for start_x, start_y, _, end_x, end_y in arcs:
         assert off_card((start_x, start_y)) < 1.5
         assert off_card((end_x, end_y)) < 1.5
+
+
+def test_block_icons_fill_a_square_card_better_than_inline(tmp_path):
+    # A ring needs near-square cards for equal connectors, and a square card
+    # holding one short row is mostly empty. Stacking the icon over the title
+    # roughly doubles the content height, which is what fills it.
+    def content_height(position):
+        spec = DiagramSpec.from_dict(
+            {
+                "canvas": {"width": 812, "height": 770},
+                "layout": {
+                    "type": "ring",
+                    "card_width": 180,
+                    "card_height": 165,
+                    "font_scale": 1.35,
+                    "icon_position": position,
+                },
+                "nodes": [
+                    {"id": f"s{index}", "title": "Build", "icon": "github", "eyebrow": "STEP"}
+                    for index in range(5)
+                ],
+                "edges": [
+                    {"from": f"s{index}", "to": f"s{(index + 1) % 5}", "route": "ring"}
+                    for index in range(5)
+                ],
+            }
+        )
+        output = tmp_path / f"{position}.svg"
+        render_diagram(spec, output)
+        card = output.read_text().split('<g class="node', 1)[1].split("</g>", 1)[0]
+        tops = [float(v) for v in re.findall(r'<text[^>]* y="([-\d.]+)"', card)]
+        icon = re.search(r'<use [^>]*y="([-\d.]+)"[^>]*height="([\d.]+)"', card)
+        return max(tops + [float(icon.group(1)) + float(icon.group(2))]) - min(
+            tops + [float(icon.group(1))]
+        )
+
+    assert content_height("block") > content_height("inline") * 1.3
+    assert content_height("block") / 165 > 0.5  # a square card is otherwise mostly empty
 
 
 def test_ring_rejects_connectors_of_different_lengths(tmp_path):

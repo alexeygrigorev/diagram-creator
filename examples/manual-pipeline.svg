@@ -12,8 +12,8 @@
     <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#dc2626"/></marker>
     <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#64748b"/></marker>
     <symbol id="icon-database" viewBox="0 0 24 24">
-        <ellipse cx="12" cy="5" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke"/>
-        <path d="M4 5v7c0 1.66 3.58 3 8 3s8-1.34 8-3V5M4 12v7c0 1.66 3.58 3 8 3s8-1.34 8-3v-7" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke"/>
+        <ellipse cx="12" cy="5" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M4 5v7c0 1.66 3.58 3 8 3s8-1.34 8-3V5M4 12v7c0 1.66 3.58 3 8 3s8-1.34 8-3v-7" fill="none" stroke="currentColor" stroke-width="2"/>
       </symbol>
     <symbol id="icon-document" viewBox="0 0 24 24">
         <path d="M6 2h8l4 4v16H6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 2v5h4M9 12h6M9 16h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -69,7 +69,7 @@
   <g class="node node-green" transform="translate(30 320)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#ecfdf5" stroke="#15803d"/>
     <use href="#icon-database" x="26.12" y="15" width="34" height="34" color="#15803d"/>
-    <text class="node-title icon-copy" x="66.75" y="38.84" font-size="19">FAQ dataset</text>
+    <text class="node-title icon-copy" x="67.87" y="38.84" font-size="19">FAQ dataset</text>
     <text class="node-subtitle" x="115" y="70" font-size="16">Reviewed records</text>
   </g>
   <g class="node node-amber" transform="translate(435 180)" filter="url(#shadow)">

@@ -99,13 +99,23 @@ differ by construction. The spread shrinks as the cards get small relative to
 the radius, and squarer cards help. Under about 1.15x it stops reading as
 uneven. Wrapping subtitles is what lets a card be narrow enough to get there.
 
-### 5. Cards fill their own width
+### 5. Cards are filled, not just centered
 
-Content is centered in the card, so no side is left visibly empty. A
-left-aligned title in a wide card wastes half its row.
+Both directions. Content is centered so no side is left visibly empty, and the
+content actually occupies the card rather than floating in the middle of it.
 
-Check: for each card, the widest empty margin beside the content. More than
-about a quarter of the card width means the content is not carrying it.
+Vertical emptiness is the one that slips through, because centering makes a
+near-empty card look deliberate. It shows up when something else forces the card
+size - a ring needs square cards for equal connectors (2), so a card holding one
+short row ends up a third full and reads as a box with a label lost inside it.
+
+Check: content height over card height, at least 50 percent. And for each card,
+the widest empty margin beside the content - more than about a quarter of the
+card width means the content is not carrying it.
+
+The fix is usually to make the content taller rather than the card shorter, since
+the card size is often fixed by the layout: `icon_position: "block"` stacks the
+icon over the title and roughly doubles the content height of a one-line card.
 
 ### 6. One text axis per card
 
@@ -228,10 +238,15 @@ Two lessons, both learned the hard way:
 
 - A criterion sampled on one instance is not checked. Measure every pair, every
   connector, every card.
-- A score is only as good as the rubric behind it. Three times the diagram
+- A score is only as good as the rubric behind it. Several times the diagram
   measured full marks and was still visibly wrong, because the thing that was
   wrong had no criterion. When feedback names a fault the rubric does not cover,
   add the criterion before fixing the diagram.
+- Score before shipping, not after being told. A card a third full shipped
+  because criterion 5 only measured width, and because the render was looked at,
+  noticed to be airy, and sent anyway with the concern written in prose instead
+  of being treated as a failure. A flagged fault is still a fault - if it is
+  worth mentioning, it is worth either fixing or asking about before it ships.
 
 ## The criteria that fight each other
 

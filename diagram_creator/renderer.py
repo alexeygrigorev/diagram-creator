@@ -87,10 +87,10 @@ TITLE_GAP = 10
 # off-centre and the icon-to-text gap different on every card.
 ICON_INK = {
     "api": (0.083, 0.917),
-    "browser": (0.025, 0.975),
+    "browser": (0.0, 1.0),
     "check": (0.083, 0.917),
     "close": (0.083, 0.917),
-    "database": (0.158, 0.842),
+    "database": (0.125, 0.875),
     "document": (0.208, 0.792),
     "github": (0.025, 0.975),
     "issue": (0.083, 0.917),
@@ -104,7 +104,7 @@ ICON_INK = {
     "search": (0.15, 0.892),
     "settings": (0.042, 0.958),
     "sparkles": (0.05, 0.95),
-    "user": (0.167, 0.833),
+    "user": (0.125, 0.875),
     "video": (0.083, 0.917),
     "warning": (0.067, 0.933),
     "websocket": (0.125, 0.875),
