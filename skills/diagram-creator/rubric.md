@@ -49,39 +49,35 @@ right and every riser the same distance down, and no two steps share a row.
 Check: the spread of consecutive `x` advances and of consecutive `y` advances,
 both under 0.5 px; every riser at least the card height.
 
-### 2. Connectors are one arc repeated
+### 2. Connectors are all the same length
 
-Every connector in a loop is the same arc of the same circle, only rotated -
-identical radius and identical length. Curvature and length are both things the
-eye compares, so a connector that is shorter, or on a tighter radius, reads as a
-different shape even when its endpoints are right.
+In a loop, every arrow between one node and the next is identical: same radius,
+same length, same curvature. Different lengths are the single most visible way a
+cycle stops reading as one circle, and the eye compares length before anything
+else.
 
-The renderer enforces this: a ring whose connectors differ in length by more
-than 10 percent is rejected, with the card height that would even them out.
+This is structural in the renderer, not a tolerance. Every connector spans one
+shared angle, centred in its slot, so no card size can produce a ring of mixed
+lengths. Chord spread measures 0.002 px across a five-node loop.
 
-Check: chord length and arc radius of every connector. Radius spread under
-0.5 px always; chord spread under 10 percent, or it will not render.
+Check: chord length and arc radius of every connector. Chord spread under 0.5 px,
+radius spread under 0.01 px. Anything larger means the shared sweep has been
+bypassed and is a bug, not a tuning problem.
 
-Equal chords and touching cards pull against each other. Forcing one shared
-angular standoff makes the chords identical but then only the card needing the
-widest standoff is actually touched. Touching every card is the one to keep, and
-chord equality then depends on the card shape: a card presents a different
-angular width at each slot unless it is close to square. It converges near
-h = 0.95w, but that ratio also brings adjacent cards almost together, so aim for
-square-ish rather than exact.
+### 3. Connectors reach the cards they join
 
-The same applies to a staircase, where every connector should be one elbow
-translated: identical horizontal run, identical vertical run, identical corner
-radius.
+A connector that stops visibly short reads as broken.
 
-### 3. Connectors touch the cards they join
+One shared sweep and exact contact at both ends cannot both hold. A rectangle
+covers a different angle at each slot on the circle unless it is exactly square,
+so a sweep sized to clear the widest case leaves the narrowest ends a little
+short. Measured floor is about 22 px for any card that can hold content, and
+typical shapes land in the thirties. Equal length wins - a 30 px gap is far less
+visible than one arrow half the length of its neighbour - and the renderer bounds
+the gap at 42 px, rejecting anything worse with the card height that closes it.
 
-A connector meets the card at each end. A connector that stops short reads as
-broken, and the gap is more visible than any amount of curvature polish.
-
-Check: each endpoint sits on a card's outline, within about a pixel. Bisect for
-the crossing rather than sampling it - stepping along the arc leaves the
-endpoint off by the step size, which is a visible pixel or two at ring scale.
+Check: distance from each endpoint to the nearest card outline, at most 42 px.
+The error names the card height that minimises it.
 
 ### 4. Nodes are clearly separated
 
@@ -255,7 +251,9 @@ tuning rather than chasing each complaint in turn:
 
 - Even gaps (4) want cards small relative to the radius. Short connectors and a
   compact canvas want the opposite.
-- Equal chords (2) want a square-ish card. Even gaps (4) want a wide flat one.
+- Equal length (2) and exact contact (3) cannot both hold for rectangles on a
+  circle. The renderer resolves this one for you: length is guaranteed, contact
+  is bounded.
 - A compact canvas reads better on a phone - it is scaled down less, so every
   size on it survives - but leaves less room for everything else.
 

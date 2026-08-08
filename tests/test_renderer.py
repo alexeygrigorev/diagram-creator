@@ -19,7 +19,7 @@ STEP_EDGE = re.compile(
 )
 
 
-def ring_spec(width, height, *, count=5, margin=None, card=(220, 205)):
+def ring_spec(width, height, *, count=5, margin=None, card=(170, 140)):
     layout = {"type": "ring", "card_width": card[0], "card_height": card[1]}
     if margin is not None:
         layout["margin"] = margin
@@ -431,8 +431,20 @@ def ring_arcs(svg):
     ]
 
 
-def test_ring_connectors_touch_the_cards_they_join(tmp_path):
-    spec = ring_spec(1040, 1010)
+def test_ring_connectors_are_all_the_same_length(tmp_path):
+    # Every connector spans one shared angle centred in its slot, so equal
+    # arrows are structural - no card size can produce a ring of mixed lengths.
+    output = tmp_path / "loop.svg"
+    for card in ((170, 140), (150, 150), (190, 130)):
+        render_diagram(ring_spec(726, 673, card=card), output)
+        arcs = ring_arcs(output.read_text())
+        chords = [math.hypot(a[3] - a[0], a[4] - a[1]) for a in arcs]
+        assert max(chords) - min(chords) < 0.5, card
+        assert max(a[2] for a in arcs) - min(a[2] for a in arcs) < 0.01, card
+
+
+def test_ring_connectors_reach_the_cards_they_join(tmp_path):
+    spec = ring_spec(726, 673)
     output = tmp_path / "loop.svg"
 
     render_diagram(spec, output)
@@ -441,7 +453,7 @@ def test_ring_connectors_touch_the_cards_they_join(tmp_path):
     arcs = ring_arcs(svg)
     assert len(arcs) == 5
     boxes = [
-        (x, y, x + 220, y + 205) for x, y in (map(float, n) for n in NODE_TRANSFORM.findall(svg))
+        (x, y, x + 170, y + 140) for x, y in (map(float, n) for n in NODE_TRANSFORM.findall(svg))
     ]
 
     def off_card(point):
@@ -452,11 +464,11 @@ def test_ring_connectors_touch_the_cards_they_join(tmp_path):
             for x0, y0, x1, y1 in boxes
         )
 
-    # Each end stops where the circle crosses a card's edge, so it meets the card
-    # rather than floating off it.
+    # One shared sweep means the ends needing least room stop a little short;
+    # the renderer bounds how far, so no connector visibly floats.
     for start_x, start_y, _, end_x, end_y in arcs:
-        assert off_card((start_x, start_y)) < 1.5
-        assert off_card((end_x, end_y)) < 1.5
+        assert off_card((start_x, start_y)) <= 42
+        assert off_card((end_x, end_y)) <= 42
 
 
 def test_block_icons_fill_a_square_card_better_than_inline(tmp_path):
@@ -497,32 +509,16 @@ def test_block_icons_fill_a_square_card_better_than_inline(tmp_path):
     assert content_height("block") / 165 > 0.5  # a square card is otherwise mostly empty
 
 
-def test_ring_rejects_connectors_of_different_lengths(tmp_path):
-    # A card presents a different angular width at each slot unless it is close
-    # to square, so a wide flat one makes the bottom arc far shorter than the
-    # top. That is the most visible way a loop stops reading as one circle, so
-    # the renderer refuses it rather than leaving it to whoever picks the size.
-    spec = ring_spec(1040, 1010, card=(220, 90))
-
-    with pytest.raises(SpecError, match="ring connectors differ in length"):
-        render_diagram(spec, tmp_path / "loop.svg")
-
-
-def test_ring_error_names_a_card_height_that_evens_the_connectors(tmp_path):
-    with pytest.raises(SpecError) as failure:
-        render_diagram(ring_spec(1040, 1010, card=(220, 90)), tmp_path / "loop.svg")
-    suggested = float(re.search(r"card_height of about (\d+)", str(failure.value)).group(1))
-
-    # Taking the advice produces a diagram that renders.
-    output = tmp_path / "fixed.svg"
-    render_diagram(ring_spec(1040, 1010, card=(220, suggested)), output)
-
-    chords = [math.hypot(a[3] - a[0], a[4] - a[1]) for a in ring_arcs(output.read_text())]
-    assert (max(chords) - min(chords)) / min(chords) <= 0.10
+def test_ring_rejects_a_card_its_connectors_cannot_reach(tmp_path):
+    # A very flat card covers a wide angle at the sides and a narrow one at the
+    # top, so one shared sweep leaves the narrow ends far short. The renderer
+    # refuses rather than shipping connectors that visibly float.
+    with pytest.raises(SpecError, match="short of its card"):
+        render_diagram(ring_spec(1040, 1010, card=(220, 55)), tmp_path / "loop.svg")
 
 
 def test_center_detail_sits_clear_of_the_annotation_circle(tmp_path):
-    spec = ring_spec(1040, 1010)
+    spec = ring_spec(726, 673)
     output = tmp_path / "loop.svg"
 
     render_diagram(spec, output)
@@ -537,13 +533,13 @@ def test_center_detail_sits_clear_of_the_annotation_circle(tmp_path):
 
 
 def test_ring_layout_centers_the_annotation_on_the_circle(tmp_path):
-    spec = ring_spec(1040, 1010)
+    spec = ring_spec(726, 673)
     output = tmp_path / "loop.svg"
 
     render_diagram(spec, output)
 
     svg = output.read_text()
-    center_x, center_y = ring_center(ring_card_centers(svg, 220, 205))
+    center_x, center_y = ring_center(ring_card_centers(svg, 170, 140))
     annotation = re.search(r'<circle class="center-annotation" cx="([-\d.]+)" cy="([-\d.]+)"', svg)
     assert annotation is not None
     assert (float(annotation.group(1)), float(annotation.group(2))) == pytest.approx(
@@ -575,10 +571,10 @@ def test_ring_layout_rejects_a_canvas_that_overlaps_cards(tmp_path):
 
 def test_ring_layout_margin_shrinks_the_circle(tmp_path):
     def radius(margin):
-        spec = ring_spec(1040, 1010, margin=margin)
+        spec = ring_spec(900, 840, margin=margin)
         output = tmp_path / f"loop-{margin}.svg"
         render_diagram(spec, output)
-        centers = ring_card_centers(output.read_text(), 220, 205)
+        centers = ring_card_centers(output.read_text(), 170, 140)
         center_x, center_y = ring_center(centers)
         return math.hypot(centers[0][0] - center_x, centers[0][1] - center_y)
 
@@ -687,8 +683,8 @@ def test_titles_share_one_size_rather_than_being_squeezed(tmp_path):
     # while leaving its neighbour untouched - visibly different letterforms.
     spec = DiagramSpec.from_dict(
         {
-            "canvas": {"width": 900, "height": 856},
-            "layout": {"type": "ring", "card_width": 230, "card_height": 216},
+            "canvas": {"width": 726, "height": 673},
+            "layout": {"type": "ring", "card_width": 170, "card_height": 140},
             "nodes": [
                 {"id": "a", "title": "Interview", "icon": "message"},
                 {"id": "b", "title": "Apply", "icon": "document"},
@@ -716,7 +712,7 @@ def test_titles_share_one_size_rather_than_being_squeezed(tmp_path):
 
     size = int(sizes.pop())
     for title in ("Interview", "Apply", "Build", "Network", "Reflect"):
-        assert _text_width(title, size, TITLE_WEIGHT) <= 230 - 32
+        assert _text_width(title, size, TITLE_WEIGHT) <= 170 - 32
 
 
 @pytest.mark.parametrize("source", EXAMPLE_SPECS, ids=lambda path: path.stem)

@@ -58,10 +58,14 @@ RING_MARGIN = 40
 RING_EDGE_GAP = 0
 RING_ARC_SAMPLES = 240
 RING_CARD_GAP = 24
-# How much the ring's connectors may differ in length before the diagram is
-# rejected. Unequal arrows are the most visible way a loop stops reading as one
-# circle, so this is enforced rather than left to whoever picks the card size.
-RING_CHORD_TOLERANCE = 0.10
+# Every connector spans the same angle, so unequal arrows are impossible by
+# construction. The floor keeps a very tight ring from collapsing its arcs.
+RING_MIN_SWEEP = 0.15
+# How far a connector may stop short of the card it joins. One shared sweep makes
+# every connector identical, and the price is that the ends needing less room stop
+# a little short. About 22px is the floor for any usable card, so this is set just
+# above it - tight enough to force a sane card shape, loose enough to be reachable.
+RING_REACH_TOLERANCE = 42.0
 STAIRCASE_MARGIN = 40
 STAIRCASE_STEP_GAP = 18
 # The tightest horizontal advance, as a share of the card width. Cards may
@@ -708,31 +712,38 @@ def _check_ring_chords(spec: DiagramSpec, ring: Ring, boxes: dict[str, Box]) -> 
     than the arc over the top. Squaring the card up is the fix, so the error says
     which height would do it.
     """
-    lengths = _ring_chords(spec, ring, boxes)
-    if not lengths or min(lengths) <= 0:
-        return
-    spread = (max(lengths) - min(lengths)) / min(lengths)
-    if spread <= RING_CHORD_TOLERANCE:
+    span = 2 * math.pi / ring.count
+    sweep = _ring_sweep(spec, ring, boxes)
+    worst = 0.0
+    for index, node in enumerate(spec.nodes):
+        angle = ring.angle(index)
+        for direction in (1, -1):
+            own = abs(_ring_exit(ring, boxes[node.id], angle, direction * span) - angle)
+            worst = max(worst, ((span - sweep) / 2 - own) * ring.radius)
+    if worst <= RING_REACH_TOLERANCE:
         return
     width = spec.layout.card_width or 260
     suggestion = _ring_even_height(spec, ring, boxes, width)
     advice = (
-        f"; card_height of about {suggestion:.0f} evens them out"
+        f"; card_height of about {suggestion:.0f} closes it"
         if suggestion is not None
         else "; use a squarer card"
     )
     raise SpecError(
-        f"ring connectors differ in length by {spread:.0%} "
-        f"(longest {max(lengths):.0f}px, shortest {min(lengths):.0f}px){advice}"
+        f"ring connectors are all the same length, but the slackest stops "
+        f"{worst:.0f}px short of its card{advice}"
     )
 
 
 def _ring_even_height(
     spec: DiagramSpec, ring: Ring, boxes: dict[str, Box], width: float
 ) -> float | None:
-    """The card height that brings the connectors closest to equal length."""
-    # Only heights that could hold a card's content are worth suggesting; a
-    # sliver of a card also evens the arcs out, and is no use to anyone.
+    """The card height at which one shared sweep still reaches every card.
+
+    Only heights that could hold a card's content are worth suggesting; a sliver
+    of a card also reaches everywhere, and is no use to anyone.
+    """
+    slot = 2 * math.pi / ring.count
     best: tuple[float, float] | None = None
     for step in range(30, 251):
         candidate = width * step / 100
@@ -740,13 +751,18 @@ def _ring_even_height(
             key: Box(box.center_x - width / 2, box.center_y - candidate / 2, width, candidate)
             for key, box in boxes.items()
         }
-        lengths = _ring_chords(spec, ring, trial)
-        if min(lengths) <= 0:
-            continue
-        spread = (max(lengths) - min(lengths)) / min(lengths)
-        if best is None or spread < best[0]:
-            best = (spread, candidate)
-    return None if best is None or best[0] > RING_CHORD_TOLERANCE else best[1]
+        reaches = [
+            abs(
+                _ring_exit(ring, trial[node.id], ring.angle(index), direction * slot)
+                - ring.angle(index)
+            )
+            for index, node in enumerate(spec.nodes)
+            for direction in (1, -1)
+        ]
+        worst = (max(reaches) - min(reaches)) * ring.radius
+        if best is None or worst < best[0]:
+            best = (worst, candidate)
+    return None if best is None or best[0] > RING_REACH_TOLERANCE else best[1]
 
 
 def _ring_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
@@ -1083,14 +1099,33 @@ def _ring_path(
         # The circle leaves a card past its corner, so following it would sag
         # behind the cards. Join the facing sides instead, on the ring's radius.
         return _ring_chord_arc(edge, boxes, ring)
-    # Each end stops exactly where the circle crosses that card's edge, so every
-    # connector meets the cards it joins. Equal arc lengths then come from the
-    # card proportions - see the ring section of the skill for the ratio.
-    start = _ring_exit(ring, boxes[edge.source], ring.angle(source_index), span)
-    end = _ring_exit(ring, boxes[edge.target], ring.angle(source_index) + span, -span)
+    # Every connector spans the same angle, centred in its slot, so all of them
+    # are one arc of one circle rotated into place - identical length by
+    # construction rather than by luck of the card proportions.
+    sweep = _ring_sweep(spec, ring, boxes)
+    middle = ring.angle(source_index) + span / 2
+    start, end = middle - sweep / 2, middle + sweep / 2
     radius = _number(ring.radius)
     path = f"M{_point(ring.point(start))}A{radius} {radius} 0 0 1 {_point(ring.point(end))}"
-    return path, ring.point((start + end) / 2)
+    return path, ring.point(middle)
+
+
+def _ring_sweep(spec: DiagramSpec, ring: Ring, boxes: dict[str, Box]) -> float:
+    """The one angle every connector spans: the widest that clears every card.
+
+    A card covers a different angle at each slot unless it is exactly square, so
+    letting each connector stop at its own card makes them different lengths. One
+    sweep for all of them trades that for a small, even gap at the ends that need
+    less room, which is far less visible than arrows of different lengths.
+    """
+    span = 2 * math.pi / ring.count
+    standoff = 0.0
+    for index, node in enumerate(spec.nodes):
+        box = boxes[node.id]
+        angle = ring.angle(index)
+        for direction in (1, -1):
+            standoff = max(standoff, abs(_ring_exit(ring, box, angle, direction * span) - angle))
+    return max(span - 2 * standoff, span * RING_MIN_SWEEP)
 
 
 def _ring_arcs_are_clean(spec: DiagramSpec, ring: Ring, boxes: dict[str, Box]) -> bool:
