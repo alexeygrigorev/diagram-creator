@@ -5,12 +5,12 @@
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
       <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.08"/>
     </filter>
-    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#7c3aed"/></marker>
-    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#2563eb"/></marker>
-    <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#c2410c"/></marker>
-    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#15803d"/></marker>
-    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#dc2626"/></marker>
-    <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#64748b"/></marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#7c3aed"/></marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#2563eb"/></marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#c2410c"/></marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#15803d"/></marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#dc2626"/></marker>
+    <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#64748b"/></marker>
     <symbol id="icon-database" viewBox="0 0 24 24">
         <ellipse cx="12" cy="5" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke"/>
         <path d="M4 5v7c0 1.66 3.58 3 8 3s8-1.34 8-3V5M4 12v7c0 1.66 3.58 3 8 3s8-1.34 8-3v-7" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke"/>
@@ -33,8 +33,7 @@
       .node rect { stroke-width: 2; }
       .node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
       .node-title.icon-copy { text-anchor: start; }
-      .node-subtitle { font-size: 14px; font-weight: 500; fill: #64748b; text-anchor: middle; }
-      .node-subtitle.icon-copy { text-anchor: start; }
+      .node-subtitle { font-size: 13px; font-weight: 500; fill: #7a8699; text-anchor: middle; }
       .eyebrow { font-size: 12px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
       .mention-icon { font-size: 27px; font-weight: 750; text-anchor: middle; }
       .standalone-mention { font-size: 52px; font-weight: 750; text-anchor: middle; }
@@ -43,9 +42,9 @@
       .edge-label rect { stroke-width: 2; }
       .edge-label text { font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }
       .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }
-      .center-annotation { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 7 7; }
+      .center-annotation { fill: #f1f5f9; stroke: none; }
       .center-title { font-size: 16px; font-weight: 800; letter-spacing: 1.3px; fill: #334155; text-anchor: middle; }
-      .center-detail { font-size: 13px; font-weight: 600; fill: #64748b; text-anchor: middle; }
+      .center-detail { font-size: 13px; font-weight: 600; fill: #7a8699; text-anchor: middle; }
     </style>
   </defs>
   <rect width="1100" height="450" fill="#ffffff"/>
@@ -57,32 +56,32 @@
 
   <g class="node node-blue" transform="translate(30 40)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <use href="#icon-document" x="16" y="21" width="28" height="28" color="#2563eb"/>
-    <text class="node-title icon-copy" x="56" y="41">Documentation</text>
-    <text class="node-subtitle icon-copy" x="16" y="66">Published guides</text>
+    <use href="#icon-document" x="26.1" y="21" width="28" height="28" color="#2563eb"/>
+    <text class="node-title icon-copy" x="66.1" y="41">Documentation</text>
+    <text class="node-subtitle" x="115" y="66">Published guides</text>
   </g>
   <g class="node node-blue" transform="translate(30 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <use href="#icon-github" x="16" y="21" width="28" height="28" color="#2563eb"/>
-    <text class="node-title icon-copy" x="56" y="41">Course repos</text>
-    <text class="node-subtitle icon-copy" x="16" y="66">Markdown files</text>
+    <use href="#icon-github" x="35.77" y="21" width="28" height="28" color="#2563eb"/>
+    <text class="node-title icon-copy" x="75.77" y="41">Course repos</text>
+    <text class="node-subtitle" x="115" y="66">Markdown files</text>
   </g>
   <g class="node node-green" transform="translate(30 320)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#ecfdf5" stroke="#15803d"/>
-    <use href="#icon-database" x="16" y="21" width="28" height="28" color="#15803d"/>
-    <text class="node-title icon-copy" x="56" y="41">FAQ dataset</text>
-    <text class="node-subtitle icon-copy" x="16" y="66">Reviewed records</text>
+    <use href="#icon-database" x="39.52" y="21" width="28" height="28" color="#15803d"/>
+    <text class="node-title icon-copy" x="79.52" y="41">FAQ dataset</text>
+    <text class="node-subtitle" x="115" y="66">Reviewed records</text>
   </g>
   <g class="node node-amber" transform="translate(435 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#fff7ed" stroke="#c2410c"/>
-    <use href="#icon-settings" x="16" y="21" width="28" height="28" color="#c2410c"/>
-    <text class="node-title icon-copy" x="56" y="41">Build index</text>
-    <text class="node-subtitle icon-copy" x="16" y="66">Combine all sources</text>
+    <use href="#icon-settings" x="44.62" y="21" width="28" height="28" color="#c2410c"/>
+    <text class="node-title icon-copy" x="84.62" y="41">Build index</text>
+    <text class="node-subtitle" x="115" y="66">Combine all sources</text>
   </g>
   <g class="node node-purple" transform="translate(840 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
-    <use href="#icon-search" x="16" y="21" width="28" height="28" color="#7c3aed"/>
-    <text class="node-title icon-copy" x="56" y="41">FAQ assistant</text>
-    <text class="node-subtitle icon-copy" x="16" y="66">Fresh search in Lambda</text>
+    <use href="#icon-search" x="32.77" y="21" width="28" height="28" color="#7c3aed"/>
+    <text class="node-title icon-copy" x="72.77" y="41">FAQ assistant</text>
+    <text class="node-subtitle" x="115" y="66">Fresh search in Lambda</text>
   </g>
 </svg>

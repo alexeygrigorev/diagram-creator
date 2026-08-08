@@ -58,8 +58,12 @@ RING_MARGIN = 40
 RING_EDGE_GAP = 12
 RING_ARC_SAMPLES = 240
 RING_CARD_GAP = 24
+ICON_GUTTER = 12
 TITLE_SIZE, TITLE_WEIGHT = 16, 750
-SUBTITLE_SIZE, SUBTITLE_WEIGHT = 14, 500
+SUBTITLE_SIZE, SUBTITLE_WEIGHT = 13, 500
+DETAIL_SIZE, DETAIL_WEIGHT = 13, 500
+ANNOTATION_PADDING = 14
+EYEBROW_DROP = 7
 # Advance widths per 1 px of font size for the card font stack, measured out of
 # Chromium by scripts/measure_text.py. Widths scale linearly with font size to
 # within 0.1 px, so one table per weight covers every size the cards use.
@@ -289,14 +293,14 @@ def render_svg_text(
     symbols = _symbols_for(spec)
     markers = "\n".join(
         f'<marker id="arrow-{name}" viewBox="0 0 10 10" refX="9" refY="5" '
-        'markerWidth="7" markerHeight="7" orient="auto">'
+        'markerWidth="9" markerHeight="9" orient="auto">'
         f'<path d="M0 0 10 5 0 10Z" fill="{color}"/></marker>'
         for name, color in EDGE_COLORS.items()
     )
     start_marker_colors = {edge.color for edge in spec.edges if edge.bidirectional}
     start_markers = "\n".join(
         f'<marker id="arrow-start-{name}" viewBox="0 0 10 10" refX="9" refY="5" '
-        'markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
+        'markerWidth="9" markerHeight="9" orient="auto-start-reverse">'
         f'<path d="M0 0 10 5 0 10Z" fill="{EDGE_COLORS[name]}"/></marker>'
         for name in sorted(start_marker_colors)
     )
@@ -597,12 +601,15 @@ def _draw_node(node: Node, box: Box) -> str:
     plain = node.variant == "plain"
     icon_size = 28
     compact = box.height < 80
-    # A subtitle turns the card into a two-line block, so the icon and title row
-    # shifts up by half a line to keep the whole block on the card's center.
+    # Every row the card carries belongs to one block that sits on the card's
+    # center. A subtitle extends the block downward and an eyebrow extends it
+    # upward, so each one shifts the icon and title row the other way.
     lift = 10 if node.subtitle and not compact else 0
-    icon_y = 19 if compact else (box.height - icon_size) / 2 - lift
-    title_y = 27 if compact else box.height / 2 + 6 - lift
-    subtitle_y = 50 if compact else box.height / 2 + 31 - lift
+    drop = EYEBROW_DROP if node.eyebrow and not compact else 0
+    icon_y = 19 if compact else (box.height - icon_size) / 2 - lift + drop
+    title_y = 27 if compact else box.height / 2 + 6 - lift + drop
+    subtitle_y = 50 if compact else box.height / 2 + 31 - lift + drop
+    eyebrow_y = 25 if compact else icon_y - 6
     center_x = box.width / 2
     radius = 16 if compact else 18
     shadow = "" if plain else ' filter="url(#shadow)"'
@@ -618,42 +625,38 @@ def _draw_node(node: Node, box: Box) -> str:
         )
     if node.eyebrow:
         lines.append(
-            f'    <text class="eyebrow" x="{_number(center_x)}" y="25">'
+            f'    <text class="eyebrow" x="{_number(center_x)}" y="{_number(eyebrow_y)}">'
             f"{escape(node.eyebrow)}</text>"
         )
+    # Icon and title are one centered group: a left-aligned row would leave the
+    # right half of the card empty, and a centered subtitle under a left-aligned
+    # title puts the two lines on competing axes.
+    title_width = box.width - (72 if node.icon else 32)
+    title_room = min(_text_width(node.title, TITLE_SIZE, TITLE_WEIGHT), title_width)
+    group_x = (box.width - (icon_size + ICON_GUTTER + title_room)) / 2 if node.icon else 0
     if node.icon == "mention":
         lines.append(
-            f'    <text class="mention-icon" x="30" y="{_number(title_y + 3)}" '
-            f'fill="{palette.stroke}">@</text>'
+            f'    <text class="mention-icon" x="{_number(group_x + icon_size / 2)}" '
+            f'y="{_number(title_y + 3)}" fill="{palette.stroke}">@</text>'
         )
     elif node.icon:
         lines.append(
-            f'    <use href="#icon-{escape(node.icon)}" x="16" y="{_number(icon_y)}" '
+            f'    <use href="#icon-{escape(node.icon)}" x="{_number(group_x)}" '
+            f'y="{_number(icon_y)}" '
             f'width="{icon_size}" height="{icon_size}" color="{palette.stroke}"/>'
         )
-    title_x = 56 if node.icon else center_x
+    title_x = group_x + icon_size + ICON_GUTTER if node.icon else center_x
     title_class = "node-title icon-copy" if node.icon else "node-title"
-    title_width = box.width - 72 if node.icon else box.width - 32
     lines.append(
         f'    <text class="{title_class}" x="{_number(title_x)}" '
         f'y="{_number(title_y)}"{_fit(node.title, title_width, TITLE_SIZE, TITLE_WEIGHT)}>'
         f"{escape(node.title)}</text>"
     )
     if node.subtitle:
-        if node.icon:
-            # The icon already anchors the card to a left edge. Centering the
-            # subtitle would put the two lines on different axes, so it shares
-            # the icon's margin instead - or the title's on a borderless label.
-            subtitle_x = title_x if plain else 16.0
-            subtitle_class = "node-subtitle icon-copy"
-        else:
-            subtitle_x = center_x
-            subtitle_class = "node-subtitle"
-        subtitle_width = box.width - subtitle_x - 16 if node.icon else box.width - 32
         lines.append(
-            f'    <text class="{subtitle_class}" x="{_number(subtitle_x)}" '
+            f'    <text class="node-subtitle" x="{_number(center_x)}" '
             f'y="{_number(subtitle_y)}"'
-            f"{_fit(node.subtitle, subtitle_width, SUBTITLE_SIZE, SUBTITLE_WEIGHT)}>"
+            f"{_fit(node.subtitle, box.width - 32, SUBTITLE_SIZE, SUBTITLE_WEIGHT)}>"
             f"{escape(node.subtitle)}</text>"
         )
     lines.append("  </g>")
@@ -798,18 +801,20 @@ def _ring_path(
 def _ring_chord_arc(
     edge: Edge, boxes: dict[str, Box], ring: Ring
 ) -> tuple[str, tuple[float, float]]:
-    """Bow a short connector outward by the same proportion as the ring's own arcs."""
+    """Join two facing card sides on the ring's own radius, not a tighter curve.
+
+    Curvature is what the eye reads as "part of the same circle", so this arc
+    keeps the ring's radius even though its centre has to shift inward to reach
+    the card edges. A tighter radius would bulge and look like a different shape.
+    """
     source, target = boxes[edge.source], boxes[edge.target]
     start_anchor, end_anchor = _default_anchors(source, target)
     start = _anchor(source, edge.source_anchor or start_anchor)
     end = _anchor(target, edge.target_anchor or end_anchor)
     half_chord = math.hypot(end[0] - start[0], end[1] - start[1]) / 2
-    # A full ring slot rises this far off its own chord; reuse that ratio here.
-    slot = math.pi / ring.count
-    bow = half_chord * (1 - math.cos(slot)) / math.sin(slot)
-    if bow < 1:
+    if half_chord >= ring.radius:
         return _line_path(start, end)
-    radius = _number((half_chord**2 + bow**2) / (2 * bow))
+    radius = _number(ring.radius)
     return (
         f"M{_point(start)}A{radius} {radius} 0 0 1 {_point(end)}",
         ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2),
@@ -932,13 +937,24 @@ def _draw_center(spec: DiagramSpec, width: int, height: int) -> str:
             f"{escape(center.subtitle)}</text>"
         )
     if center.detail:
-        # The detail line is a caption, and its width is unknown until the browser
-        # lays it out, so it sits clear of the circle instead of cutting through it.
+        # The detail carries the meaning, so keep it inside the annotation when the
+        # circle is wide enough to hold it there, and drop it below as a caption
+        # only when it would otherwise cut through the edge.
+        inside_y = y + (43 if center.subtitle else 25)
+        half_chord = _circle_half_width(center.radius, inside_y - y)
+        detail_width = _text_width(center.detail, DETAIL_SIZE, DETAIL_WEIGHT)
+        fits_inside = detail_width + 2 * ANNOTATION_PADDING <= 2 * half_chord
+        detail_y = inside_y if fits_inside else y + center.radius + 24
         lines.append(
             f'  <text class="center-detail" x="{_number(x)}" '
-            f'y="{_number(y + center.radius + 24)}">{escape(center.detail)}</text>'
+            f'y="{_number(detail_y)}">{escape(center.detail)}</text>'
         )
     return "\n".join(lines)
+
+
+def _circle_half_width(radius: float, offset: float) -> float:
+    """Half the circle's width at a given vertical offset from its center."""
+    return math.sqrt(max(0.0, radius**2 - offset**2))
 
 
 def _symbols_for(spec: DiagramSpec) -> str:
@@ -969,8 +985,7 @@ def _style() -> str:
   .node rect { stroke-width: 2; }
   .node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
   .node-title.icon-copy { text-anchor: start; }
-  .node-subtitle { font-size: 14px; font-weight: 500; fill: #64748b; text-anchor: middle; }
-  .node-subtitle.icon-copy { text-anchor: start; }
+  .node-subtitle { font-size: 13px; font-weight: 500; fill: #7a8699; text-anchor: middle; }
   .eyebrow { font-size: 12px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
   .mention-icon { font-size: 27px; font-weight: 750; text-anchor: middle; }
   .standalone-mention { font-size: 52px; font-weight: 750; text-anchor: middle; }
@@ -979,9 +994,9 @@ def _style() -> str:
   .edge-label rect { stroke-width: 2; }
   .edge-label text { font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }
   .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }
-  .center-annotation { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 7 7; }
+  .center-annotation { fill: #f1f5f9; stroke: none; }
   .center-title { font-size: 16px; font-weight: 800; letter-spacing: 1.3px; fill: #334155; text-anchor: middle; }
-  .center-detail { font-size: 13px; font-weight: 600; fill: #64748b; text-anchor: middle; }
+  .center-detail { font-size: 13px; font-weight: 600; fill: #7a8699; text-anchor: middle; }
 </style>"""
 
 

@@ -389,8 +389,7 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     # Connectors follow the ring itself, except where it only grazes a corner.
     arcs = re.findall(r'<path class="edge" d="M[-\d. ]+A([\d.]+) ([\d.]+) 0 0 1', svg)
     assert len(arcs) == 5
-    on_ring = [arc for arc in arcs if float(arc[0]) == pytest.approx(radii[0], abs=0.5)]
-    assert len(on_ring) == 4
+    assert all(float(arc[0]) == pytest.approx(radii[0], abs=0.5) for arc in arcs)
     assert '<symbol id="icon-database"' in svg
     assert ">@</text>" in svg
     assert 'textLength="188"' in svg
@@ -415,8 +414,7 @@ def test_ring_layout_joins_bottom_cards_without_sagging_under_them(tmp_path):
     joins = [e for e in edges if float(e[1]) == pytest.approx(bottom[0][1], abs=0.5)]
     assert len(joins) == 1
     start_x, start_y, radius, end_x, end_y = (float(value) for value in joins[0])
-    ring_radius = max(float(edge[2]) for edge in edges)
-    assert radius < ring_radius
+    assert radius == pytest.approx(max(float(edge[2]) for edge in edges), abs=0.5)
     assert end_y == pytest.approx(start_y, abs=0.5)
     assert min(point[0] for point in bottom) < end_x < start_x < max(point[0] for point in bottom)
     # Its deepest point stays inside the cards rather than sagging under them.
@@ -523,7 +521,7 @@ def test_renders_a_plain_node_without_a_card(tmp_path):
     assert svg.count("<rect") == 2  # the canvas background and the one real card
     assert 'class="node node-plain node-blue"' in svg
     assert 'filter="url(#shadow)">\n    <rect' in svg  # only the card keeps the shadow
-    assert '<text class="node-subtitle icon-copy" x="56"' in svg
+    assert '<text class="node-subtitle" x="129.6"' in svg  # centered like every other card
 
 
 def test_card_with_an_icon_shares_one_text_axis_and_centers_its_block(tmp_path):
@@ -549,13 +547,22 @@ def test_card_with_an_icon_shares_one_text_axis_and_centers_its_block(tmp_path):
     render_diagram(spec, output)
 
     card = output.read_text().split('transform="translate(40 40)"', 1)[1].split("</g>", 1)[0]
-    icon_y = float(re.search(r'<use [^>]*y="([-\d.]+)"', card).group(1))
-    subtitle_y = float(
-        re.search(r'class="node-subtitle[^"]*" x="[-\d.]+" y="([-\d.]+)"', card).group(1)
+    icon_x, icon_y = (
+        float(v) for v in re.search(r'<use [^>]*x="([-\d.]+)" y="([-\d.]+)"', card).groups()
     )
-    # The icon anchors the left margin, so the subtitle starts there too.
-    assert '<text class="node-subtitle icon-copy" x="16"' in card
-    assert '<use href="#icon-document" x="16"' in card
+    title_x = float(re.search(r'class="node-title[^"]*" x="([-\d.]+)"', card).group(1))
+    subtitle_x, subtitle_y = (
+        float(v)
+        for v in re.search(r'class="node-subtitle[^"]*" x="([-\d.]+)" y="([-\d.]+)"', card).groups()
+    )
+    # Icon and title form one group centered on the card, so both lines share
+    # the card's center axis and neither leaves the far half of the card empty.
+    from diagram_creator.renderer import TITLE_SIZE, TITLE_WEIGHT, _text_width
+
+    group_end = title_x + _text_width("Docs", TITLE_SIZE, TITLE_WEIGHT)
+    assert (icon_x + group_end) / 2 == pytest.approx(240 / 2, abs=0.5)
+    assert subtitle_x == pytest.approx(240 / 2, abs=0.5)
+    assert title_x == pytest.approx(icon_x + 28 + 12, abs=0.5)
     # Icon top through subtitle descender is centered on the 110px card.
     assert (icon_y + subtitle_y + 4) / 2 == pytest.approx(55, abs=2)
 
@@ -577,7 +584,7 @@ def test_card_without_an_icon_keeps_both_lines_centered(tmp_path):
     card = output.read_text().split('<g class="node node-blue"', 1)[1].split("</g>", 1)[0]
     assert '<text class="node-title" x=' in card
     assert '<text class="node-subtitle" x=' in card
-    assert "icon-copy" not in card
+    assert "icon-copy" not in card  # no icon, so the title needs no start anchor
 
 
 def test_long_subtitle_is_fitted_to_the_card(tmp_path):

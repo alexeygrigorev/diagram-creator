@@ -386,3 +386,17 @@ only for one-off overrides.
 Inspect the image after rendering. Check every label, arrow direction, feedback
 loop, and crop. Keep an existing asset unchanged unless the user explicitly
 asks to replace it; otherwise write a new filename.
+
+Then score it against [`rubric.md`](rubric.md) before shipping. Ten criteria,
+one point each, every one measurable against the SVG or the rendered PNG.
+Measure rather than eyeball - parse the SVG for card positions and arc radii,
+and scan the PNG for ink extents to see what the eye actually gets. Report the
+score with the failing criteria named. A diagram that renders is not a diagram
+that is done.
+
+When a diagram passes the rubric but still looks wrong, or when it needs to be
+genuinely good rather than merely correct, run the designer review in
+[`agents/designer.md`](agents/designer.md). Give it the PNG path, the JSON spec
+path, and a list of anything already being fixed so it looks past those. It
+returns ranked, specific changes and separates structural problems from taste
+calls.
