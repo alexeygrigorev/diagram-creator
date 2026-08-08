@@ -200,9 +200,12 @@ component:
   independently.
 
 For a taller node with an icon, place the icon and title on one primary row and
-center the subtitle beneath them. Reuse the same icon axis, title axis, and
-baselines for all cards in that row or column. Keep the icon out of the
-subtitle's line box.
+put the subtitle beneath them on the icon's left margin. The two lines share one
+axis - a left-aligned title over a centered subtitle reads as two competing
+alignments. Center the whole block on the card rather than centering the icon
+row and letting the subtitle hang below it. Reuse the same icon axis, title
+axis, and baselines for all cards in that row or column. Keep the icon out of
+the subtitle's line box.
 
 For a node without an icon, center the title and subtitle on the card center.
 Do not reserve an empty icon column. Use the same typography, line spacing,
@@ -261,6 +264,8 @@ can make one continuous loop look broken.
 Optionally place a small neutral dashed circle in the center with a two-line
 label such as `CURATION / LOOP`. Treat it as annotation, not another workflow
 node: do not attach arrows to it, and keep it visually quieter than the cards.
+A `detail` line is rendered as a caption below the circle, because a sentence is
+almost always wider than the circle it would otherwise cut through.
 
 When one edge looks wrong, fix the reusable ring router rather than overriding
 one generated path. Inspect the rendered loop for bilateral symmetry,

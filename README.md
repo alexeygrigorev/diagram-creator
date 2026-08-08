@@ -175,9 +175,11 @@ Available icons are `github`, `search`, `database`, `openai`, `issue`,
 `rank-fusion`, `message`, `video`, `sparkles`, `check`, `warning`, `close`,
 `mention`, `number-1`, `number-2`, and `number-3`.
 
-Cards use one component system: a 16 px inset, 28 px icon viewport, fixed text
-axis, centered subtitle, 2 px semantic border, 18 px radius, and a shared
-shadow. Long titles are fitted into the available text column automatically.
+Cards use one component system: a 16 px inset, 28 px icon viewport, 2 px
+semantic border, 18 px radius, and a shared shadow. An icon anchors the card to
+a left edge and the subtitle shares that margin; a card without an icon centers
+both lines instead. Either way the title and subtitle sit on one axis, the block
+is centered on the card, and long lines are fitted to the available column.
 
 Edge routes are `forward`, `below`, `straight`, `curve`, and `ring`. Explicit
 edges accept `from_anchor` and `to_anchor` values of `left`, `right`, `top`, or

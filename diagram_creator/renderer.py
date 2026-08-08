@@ -58,6 +58,8 @@ RING_MARGIN = 40
 RING_EDGE_GAP = 12
 RING_ARC_SAMPLES = 240
 RING_CARD_GAP = 24
+TITLE_CHARACTER = 9.5
+SUBTITLE_CHARACTER = 7.3
 DEFAULT_STANDALONE_ICON_SIZE = 56
 STANDALONE_ICON_DIMENSIONS = {
     "user": (56, 56),
@@ -402,6 +404,13 @@ def _ring_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
     return boxes
 
 
+def _fit(text: str, available: float, per_character: float) -> str:
+    """Squeeze a line into its column only when it would otherwise overflow."""
+    if len(text) * per_character <= available:
+        return ""
+    return f' textLength="{_number(available)}" lengthAdjust="spacingAndGlyphs"'
+
+
 def _draw_node(node: Node, box: Box) -> str:
     palette = PALETTES[node.color]
     if node.variant == "icon":
@@ -409,9 +418,12 @@ def _draw_node(node: Node, box: Box) -> str:
     plain = node.variant == "plain"
     icon_size = 28
     compact = box.height < 80
-    icon_y = 19 if compact else (box.height - icon_size) / 2
-    title_y = 27 if compact else box.height / 2 + 6
-    subtitle_y = 50 if compact else box.height / 2 + 31
+    # A subtitle turns the card into a two-line block, so the icon and title row
+    # shifts up by half a line to keep the whole block on the card's center.
+    lift = 10 if node.subtitle and not compact else 0
+    icon_y = 19 if compact else (box.height - icon_size) / 2 - lift
+    title_y = 27 if compact else box.height / 2 + 6 - lift
+    subtitle_y = 50 if compact else box.height / 2 + 31 - lift
     center_x = box.width / 2
     radius = 16 if compact else 18
     shadow = "" if plain else ' filter="url(#shadow)"'
@@ -443,24 +455,27 @@ def _draw_node(node: Node, box: Box) -> str:
     title_x = 56 if node.icon else center_x
     title_class = "node-title icon-copy" if node.icon else "node-title"
     title_width = box.width - 72 if node.icon else box.width - 32
-    fit = (
-        f' textLength="{_number(title_width)}" lengthAdjust="spacingAndGlyphs"'
-        if len(node.title) * 9.5 > title_width
-        else ""
-    )
     lines.append(
         f'    <text class="{title_class}" x="{_number(title_x)}" '
-        f'y="{_number(title_y)}"{fit}>'
+        f'y="{_number(title_y)}"{_fit(node.title, title_width, TITLE_CHARACTER)}>'
         f"{escape(node.title)}</text>"
     )
     if node.subtitle:
-        # A borderless label has no card to center against, so both lines share one axis.
-        aligned = plain and node.icon
-        subtitle_x = title_x if aligned else center_x
-        subtitle_class = "node-subtitle icon-copy" if aligned else "node-subtitle"
+        if node.icon:
+            # The icon already anchors the card to a left edge. Centering the
+            # subtitle would put the two lines on different axes, so it shares
+            # the icon's margin instead - or the title's on a borderless label.
+            subtitle_x = title_x if plain else 16.0
+            subtitle_class = "node-subtitle icon-copy"
+        else:
+            subtitle_x = center_x
+            subtitle_class = "node-subtitle"
+        subtitle_width = box.width - subtitle_x - 16 if node.icon else box.width - 32
         lines.append(
             f'    <text class="{subtitle_class}" x="{_number(subtitle_x)}" '
-            f'y="{_number(subtitle_y)}">{escape(node.subtitle)}</text>'
+            f'y="{_number(subtitle_y)}"'
+            f"{_fit(node.subtitle, subtitle_width, SUBTITLE_CHARACTER)}>"
+            f"{escape(node.subtitle)}</text>"
         )
     lines.append("  </g>")
     return "\n".join(lines)
@@ -590,9 +605,21 @@ def _ring_path(
     span = 2 * math.pi / ring.count
     start = _ring_exit(ring, boxes[edge.source], start_angle, span)
     end = _ring_exit(ring, boxes[edge.target], start_angle + span, -span)
+    if not _ring_meets_an_edge(ring.point(start), boxes[edge.source]) or not _ring_meets_an_edge(
+        ring.point(end), boxes[edge.target]
+    ):
+        # The circle grazes a corner here, so an arc would sag past the cards instead
+        # of joining them. A direct connector reads as part of the same loop.
+        return _direct_path(edge, boxes, curved=False)
     radius = _number(ring.radius)
     path = f"M{_point(ring.point(start))}A{radius} {radius} 0 0 1 {_point(ring.point(end))}"
     return path, ring.point((start + end) / 2)
+
+
+def _ring_meets_an_edge(point: tuple[float, float], box: Box) -> bool:
+    """True when the arc leaves a card beside one of its sides, not past a corner."""
+    x, y = point
+    return box.y <= y <= box.bottom or box.x <= x <= box.right
 
 
 def _ring_exit(ring: Ring, box: Box, angle: float, span: float) -> float:
@@ -692,10 +719,11 @@ def _draw_center(spec: DiagramSpec, width: int, height: int) -> str:
         x, y = ring.center_x, ring.center_y
     else:
         x, y = width / 2, height / 2
+    title_y = y - 5 if center.subtitle else y + 6
     lines = [
         f'  <circle class="center-annotation" cx="{_number(x)}" cy="{_number(y)}" '
         f'r="{_number(center.radius)}"/>',
-        f'  <text class="center-title" x="{_number(x)}" y="{_number(y - 5)}">'
+        f'  <text class="center-title" x="{_number(x)}" y="{_number(title_y)}">'
         f"{escape(center.title)}</text>",
     ]
     if center.subtitle:
@@ -704,10 +732,11 @@ def _draw_center(spec: DiagramSpec, width: int, height: int) -> str:
             f"{escape(center.subtitle)}</text>"
         )
     if center.detail:
-        detail_y = y + 43 if center.subtitle else y + 25
+        # The detail line is a caption, and its width is unknown until the browser
+        # lays it out, so it sits clear of the circle instead of cutting through it.
         lines.append(
-            f'  <text class="center-detail" x="{_number(x)}" y="{_number(detail_y)}">'
-            f"{escape(center.detail)}</text>"
+            f'  <text class="center-detail" x="{_number(x)}" '
+            f'y="{_number(y + center.radius + 24)}">{escape(center.detail)}</text>'
         )
     return "\n".join(lines)
 

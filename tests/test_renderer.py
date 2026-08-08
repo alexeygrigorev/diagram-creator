@@ -28,7 +28,7 @@ def ring_spec(width, height, *, count=5, margin=None):
                 {"from": f"step-{index}", "to": f"step-{(index + 1) % count}", "route": "ring"}
                 for index in range(count)
             ],
-            "center": {"title": "LOOP"},
+            "center": {"title": "LOOP", "detail": "Each round tells you what to fix"},
         }
     )
 
@@ -386,14 +386,47 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     # The first card sits at the top of the circle and the rest follow clockwise.
     assert centers[0] == pytest.approx((center_x, center_y - radii[0]), abs=0.5)
     assert ring_angles(centers, center_x, center_y) == pytest.approx([72] * 5, abs=0.5)
-    # Every connector is one arc that follows the ring itself.
-    edges = re.findall(r'<path class="edge" d="M[-\d. ]+A([\d.]+) ([\d.]+) 0 0 1', svg)
-    assert len(edges) == 5
-    assert all(float(x) == pytest.approx(radii[0], abs=0.5) for edge in edges for x in edge)
+    # Connectors follow the ring itself, except where it only grazes a corner.
+    arcs = re.findall(r'<path class="edge" d="M[-\d. ]+A([\d.]+) ([\d.]+) 0 0 1', svg)
+    assert len(arcs) == 4
+    assert all(float(x) == pytest.approx(radii[0], abs=0.5) for arc in arcs for x in arc)
     assert '<symbol id="icon-database"' in svg
     assert ">@</text>" in svg
     assert 'textLength="188"' in svg
     assert "Each failure improves the data" in svg
+
+
+def test_ring_layout_joins_bottom_cards_without_sagging_under_them(tmp_path):
+    spec = ring_spec(940, 800)
+    output = tmp_path / "loop.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    # The circle dips below two cards that straddle the bottom, so their connector
+    # runs between their facing sides instead of arcing past the corners.
+    straight = re.findall(r'<path class="edge" d="M([-\d.]+) ([-\d.]+)L([-\d.]+) ([-\d.]+)"', svg)
+    assert len(straight) == 1
+    start_x, start_y, end_x, end_y = (float(value) for value in straight[0])
+    bottom = sorted(ring_card_centers(svg, 220, 90), key=lambda point: -point[1])[:2]
+    assert start_y == pytest.approx(bottom[0][1], abs=0.5)
+    assert end_y == pytest.approx(bottom[0][1], abs=0.5)
+    assert min(point[0] for point in bottom) < end_x < start_x < max(point[0] for point in bottom)
+
+
+def test_center_detail_sits_clear_of_the_annotation_circle(tmp_path):
+    spec = ring_spec(940, 800)
+    output = tmp_path / "loop.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    circle = re.search(
+        r'class="center-annotation" cx="([-\d.]+)" cy="([-\d.]+)" r="([-\d.]+)"', svg
+    )
+    detail = re.search(r'<text class="center-detail" x="[-\d.]+" y="([-\d.]+)"', svg)
+    assert circle is not None and detail is not None
+    assert float(detail.group(1)) > float(circle.group(2)) + float(circle.group(3))
 
 
 def test_ring_layout_centers_the_annotation_on_the_circle(tmp_path):
@@ -481,6 +514,85 @@ def test_renders_a_plain_node_without_a_card(tmp_path):
     assert 'class="node node-plain node-blue"' in svg
     assert 'filter="url(#shadow)">\n    <rect' in svg  # only the card keeps the shadow
     assert '<text class="node-subtitle icon-copy" x="56"' in svg
+
+
+def test_card_with_an_icon_shares_one_text_axis_and_centers_its_block(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "manual", "card_width": 240, "card_height": 110},
+            "nodes": [
+                {
+                    "id": "docs",
+                    "title": "Docs",
+                    "subtitle": "Published guides",
+                    "icon": "document",
+                    "x": 40,
+                    "y": 40,
+                },
+                {"id": "app", "title": "App", "x": 400, "y": 40},
+            ],
+            "edges": [{"from": "docs", "to": "app"}],
+        }
+    )
+    output = tmp_path / "card.svg"
+
+    render_diagram(spec, output)
+
+    card = output.read_text().split('transform="translate(40 40)"', 1)[1].split("</g>", 1)[0]
+    icon_y = float(re.search(r'<use [^>]*y="([-\d.]+)"', card).group(1))
+    subtitle_y = float(
+        re.search(r'class="node-subtitle[^"]*" x="[-\d.]+" y="([-\d.]+)"', card).group(1)
+    )
+    # The icon anchors the left margin, so the subtitle starts there too.
+    assert '<text class="node-subtitle icon-copy" x="16"' in card
+    assert '<use href="#icon-document" x="16"' in card
+    # Icon top through subtitle descender is centered on the 110px card.
+    assert (icon_y + subtitle_y + 4) / 2 == pytest.approx(55, abs=2)
+
+
+def test_card_without_an_icon_keeps_both_lines_centered(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "plan", "title": "Plan", "subtitle": "PM"},
+                {"id": "app", "title": "App"},
+            ],
+            "edges": [{"from": "plan", "to": "app"}],
+        }
+    )
+    output = tmp_path / "card.svg"
+
+    render_diagram(spec, output)
+
+    card = output.read_text().split('<g class="node node-blue"', 1)[1].split("</g>", 1)[0]
+    assert '<text class="node-title" x=' in card
+    assert '<text class="node-subtitle" x=' in card
+    assert "icon-copy" not in card
+
+
+def test_long_subtitle_is_fitted_to_the_card(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "manual", "card_width": 200, "card_height": 110},
+            "nodes": [
+                {
+                    "id": "docs",
+                    "title": "Docs",
+                    "subtitle": "A subtitle far too long for this narrow card",
+                    "x": 40,
+                    "y": 40,
+                },
+                {"id": "app", "title": "App", "x": 400, "y": 40},
+            ],
+            "edges": [{"from": "docs", "to": "app"}],
+        }
+    )
+    output = tmp_path / "card.svg"
+
+    render_diagram(spec, output)
+
+    card = output.read_text().split('transform="translate(40 40)"', 1)[1].split("</g>", 1)[0]
+    assert 'class="node-subtitle" x="100" y="76" textLength="168"' in card
 
 
 def test_draws_a_dashed_divider_between_grid_rows(tmp_path):
