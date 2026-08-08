@@ -9,8 +9,9 @@ passes and a designer pass finds nothing structural left.
 
 ## How to score
 
-Ten criteria, one point each. Anything you cannot verify scores zero, not the
-benefit of the doubt. Report the score with the failing criteria named.
+Twelve criteria, scored out of 12 and reported as a fraction. Anything you
+cannot verify scores zero, not the benefit of the doubt. Report the score with
+the failing criteria named.
 
 Useful measurements, all cheap:
 
@@ -23,6 +24,13 @@ Useful measurements, all cheap:
   inside a known region. This is how you check what the eye actually sees
   rather than what the coordinates claim.
 - Text width: `diagram_creator.renderer._text_width(text, size, weight)`.
+- Icon ink: `diagram_creator.renderer.ICON_INK` gives where each glyph's ink
+  starts and ends inside its box, as a fraction of the box.
+
+One trap when measuring ink from a PNG: connector arrowheads land on a card's
+outline, so a window that samples inside the card can catch them and shift the
+apparent centre by 10 px. Compute the content's extent from the SVG numbers and
+use the PNG only to confirm.
 
 ## The criteria
 
@@ -107,12 +115,19 @@ subtitle's anchor is the same center.
 
 ### 7. Content is optically centered
 
-The whole content block - icon top through subtitle descender - sits on the
-card's vertical center. Centering only the icon row and hanging the subtitle
-below it pushes everything low.
+Both directions, and on ink rather than on boxes.
 
-Check: ink extents of the card interior; the midpoint should be within about
-2 px of half the card height.
+Vertically, the whole block - eyebrow through the last subtitle line - sits on
+the card's center, and the title's cap height centers on the icon's middle. A
+title placed by baseline leaves the glyph hanging below the words it labels.
+
+Horizontally, an icon-and-title group centers on what is visible. Icon artwork
+does not fill its box evenly - in this library the ink runs from 58 percent of
+the box (`document`) to 100 percent (`openai`) - so centering the box leaves the
+group visibly off-center and gives every card a different icon-to-text gap.
+
+Check: the midpoint of icon ink start to title ink end equals the card's center
+within a pixel; vertical block midpoint within about 2 px of half the height.
 
 ### 8. Text is neither squeezed nor overflowing
 
@@ -130,7 +145,29 @@ Check: annotation `cx`/`cy` equal the computed ring center; `_text_width` of the
 title plus about 16 px of breathing room fits inside the circle at the title's
 baseline; the caption baseline is below `cy + r`.
 
-### 10. Canvas is filled
+### 10. Type survives the size it is delivered at
+
+A diagram is read wherever it is published, usually a phone. The canvas is
+scaled to the screen width, and every size on it scales with it, so a large
+canvas is what makes type small - not the type size.
+
+Check: multiply each size by `screen_width / canvas_width`. At 390 px, aim for
+the primary label at 12 px or more and nothing meaningful under 9 px. A 1180 px
+canvas takes 20 px type below 7 px; the same type on an 800 px canvas survives.
+
+Fix it from the canvas first - pick the smallest one that holds the content -
+then set type. `layout.font_scale` scales card type and its rhythm together.
+
+### 11. The diagram carries only what was asked for
+
+Every element is there because it is needed. Dropped content is actually gone,
+not shrunk or moved.
+
+Check: read the request back against the render. A subtitle nobody asked for, a
+center heading that repeats the article title, a label that duplicates the
+arrows - each one costs room that the remaining elements need.
+
+### 12. Canvas is filled
 
 The figure uses its canvas. Margins are symmetric on both axes and there is no
 dead band or empty column.
@@ -163,13 +200,23 @@ A five-node loop scored across one session:
   only. Measured across all five, the gaps were 164/288/179/288/164 - the side
   pairs 1.76x the top pairs - and the connectors, while sharing a radius, were
   clipped per card so each arc was a different length.
-- 10/10 once every connector took one shared angular standoff (identical
-  43.20 degree span, identical 359.98 px chord), subtitles wrapped so the cards
-  could shrink to 170x140 against a 489 px radius, and the gap spread came down
-  to 1.15x.
+- Claimed 10/10 after one shared angular standoff made the arcs identical. Wrong
+  again: a shared standoff means only the card needing the widest one is
+  actually touched, so four connectors floated 12 px off their cards. Criteria
+  3, 7, 10 and 11 were all still failing and none of them were in the rubric
+  yet.
+- 6/10 once those were named: connectors not touching, icon groups centered on
+  boxes instead of ink, 20 px type on a 1180 px canvas landing under 7 px on a
+  phone, and subtitles and a center heading still rendering after being cut.
 
-The lesson from that middle step: a criterion sampled on one instance is not
-checked. Measure every pair, every connector, every card.
+Two lessons, both learned the hard way:
+
+- A criterion sampled on one instance is not checked. Measure every pair, every
+  connector, every card.
+- A score is only as good as the rubric behind it. Three times the diagram
+  measured full marks and was still visibly wrong, because the thing that was
+  wrong had no criterion. When feedback names a fault the rubric does not cover,
+  add the criterion before fixing the diagram.
 
 ## The criteria that fight each other
 

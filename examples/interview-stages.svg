@@ -65,43 +65,43 @@
   <g class="node node-blue" transform="translate(40 50)" filter="url(#shadow)">
     <rect width="320" height="96" rx="18" fill="#eff6ff" stroke="#2563eb"/>
     <use href="#icon-number-1" x="84.81" y="18" width="34" height="34" color="#2563eb"/>
-    <text class="node-title icon-copy" x="130.81" y="38">Recruiter</text>
-    <text class="node-subtitle" x="160" y="73">Background and fit</text>
+    <text class="node-title icon-copy" x="129.38" y="42.2" font-size="20">Recruiter</text>
+    <text class="node-subtitle" x="160" y="73" font-size="16">Background and fit</text>
   </g>
   <g class="node node-blue" transform="translate(253.33 164)" filter="url(#shadow)">
     <rect width="320" height="96" rx="18" fill="#eff6ff" stroke="#2563eb"/>
     <use href="#icon-number-2" x="97.69" y="18" width="34" height="34" color="#2563eb"/>
-    <text class="node-title icon-copy" x="143.69" y="38">Theory</text>
-    <text class="node-subtitle" x="160" y="73">LLMs and RAG</text>
+    <text class="node-title icon-copy" x="142.26" y="42.2" font-size="20">Theory</text>
+    <text class="node-subtitle" x="160" y="73" font-size="16">LLMs and RAG</text>
   </g>
   <g class="node node-purple" transform="translate(466.67 278)" filter="url(#shadow)">
     <rect width="320" height="96" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
     <use href="#icon-number-3" x="97.94" y="18" width="34" height="34" color="#7c3aed"/>
-    <text class="node-title icon-copy" x="143.94" y="38">Coding</text>
-    <text class="node-subtitle" x="160" y="73">Python and SQL</text>
+    <text class="node-title icon-copy" x="142.51" y="42.2" font-size="20">Coding</text>
+    <text class="node-subtitle" x="160" y="73" font-size="16">Python and SQL</text>
   </g>
   <g class="node node-purple" transform="translate(680 392)" filter="url(#shadow)">
     <rect width="320" height="96" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
     <use href="#icon-document" x="38.37" y="18" width="34" height="34" color="#7c3aed"/>
-    <text class="node-title icon-copy" x="84.37" y="38">Project deep dive</text>
-    <text class="node-subtitle" x="160" y="73">Past projects and decisions</text>
+    <text class="node-title icon-copy" x="77.3" y="42.2" font-size="20">Project deep dive</text>
+    <text class="node-subtitle" x="160" y="73" font-size="16">Past projects and decisions</text>
   </g>
   <g class="node node-amber" transform="translate(893.33 506)" filter="url(#shadow)">
     <rect width="320" height="96" rx="18" fill="#fff7ed" stroke="#c2410c"/>
     <use href="#icon-settings" x="54.78" y="18" width="34" height="34" color="#c2410c"/>
-    <text class="node-title icon-copy" x="100.78" y="38">System design</text>
-    <text class="node-subtitle" x="160" y="73">Cost and latency</text>
+    <text class="node-title icon-copy" x="99.35" y="42.2" font-size="20">System design</text>
+    <text class="node-subtitle" x="160" y="73" font-size="16">Cost and latency</text>
   </g>
   <g class="node node-amber" transform="translate(1106.67 620)" filter="url(#shadow)">
     <rect width="320" height="96" rx="18" fill="#fff7ed" stroke="#c2410c"/>
     <use href="#icon-message" x="76.88" y="18" width="34" height="34" color="#c2410c"/>
-    <text class="node-title icon-copy" x="122.88" y="38">Behavioral</text>
-    <text class="node-subtitle" x="160" y="73">Collaboration and conflict</text>
+    <text class="node-title icon-copy" x="118.62" y="42.2" font-size="20">Behavioral</text>
+    <text class="node-subtitle" x="160" y="73" font-size="16">Collaboration and conflict</text>
   </g>
   <g class="node node-green" transform="translate(1320 734)" filter="url(#shadow)">
     <rect width="320" height="96" rx="18" fill="#ecfdf5" stroke="#15803d"/>
     <use href="#icon-issue" x="74.5" y="18" width="34" height="34" color="#15803d"/>
-    <text class="node-title icon-copy" x="120.5" y="38">Take-home</text>
-    <text class="node-subtitle" x="160" y="73">Build it in your own time</text>
+    <text class="node-title icon-copy" x="117.68" y="42.2" font-size="20">Take-home</text>
+    <text class="node-subtitle" x="160" y="73" font-size="16">Build it in your own time</text>
   </g>
 </svg>

@@ -61,6 +61,7 @@ class Layout:
     row_height: float | None = None
     direction: str = "clockwise"
     margin: float | None = None
+    font_scale: float = 1.0
     step_x: float | None = None
     step_y: float | None = None
 
@@ -218,6 +219,7 @@ def _parse_layout(data: Any) -> Layout:
     column_width = _optional_number(data, "column_width", "layout")
     row_height = _optional_number(data, "row_height", "layout")
     margin = _optional_number(data, "margin", "layout")
+    font_scale = _optional_number(data, "font_scale", "layout")
     step_x = _optional_number(data, "step_x", "layout")
     step_y = _optional_number(data, "step_y", "layout")
     if card_width is not None and card_width <= 0:
@@ -234,6 +236,8 @@ def _parse_layout(data: Any) -> Layout:
         raise SpecError("layout 'row_height' must be positive")
     if margin is not None and margin < 0:
         raise SpecError("layout 'margin' must be a non-negative number")
+    if font_scale is not None and font_scale <= 0:
+        raise SpecError("layout 'font_scale' must be positive")
     if step_x is not None and step_x <= 0:
         raise SpecError("layout 'step_x' must be positive")
     if step_y is not None and step_y <= 0:
@@ -259,6 +263,7 @@ def _parse_layout(data: Any) -> Layout:
         row_height=row_height,
         direction=direction,
         margin=margin,
+        font_scale=1.0 if font_scale is None else float(font_scale),
         step_x=step_x,
         step_y=step_y,
     )

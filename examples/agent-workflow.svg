@@ -44,21 +44,21 @@
 
   <g class="node node-purple" transform="translate(50.4 70.2)" filter="url(#shadow)">
     <rect width="259.2" height="104" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
-    <text class="node-title" x="129.6" y="42">Groom</text>
-    <text class="node-subtitle" x="129.6" y="77">PM</text>
+    <text class="node-title" x="129.6" y="46.2" font-size="20">Groom</text>
+    <text class="node-subtitle" x="129.6" y="77" font-size="16">PM</text>
   </g>
   <g class="node node-blue" transform="translate(410.4 70.2)" filter="url(#shadow)">
     <rect width="259.2" height="104" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <text class="node-title" x="129.6" y="42">Implement</text>
-    <text class="node-subtitle" x="129.6" y="77">Engineer</text>
+    <text class="node-title" x="129.6" y="46.2" font-size="20">Implement</text>
+    <text class="node-subtitle" x="129.6" y="77" font-size="16">Engineer</text>
   </g>
   <g class="node node-amber" transform="translate(770.4 70.2)" filter="url(#shadow)">
     <rect width="259.2" height="104" rx="18" fill="#fff7ed" stroke="#c2410c"/>
-    <text class="node-title" x="129.6" y="42">Test</text>
-    <text class="node-subtitle" x="129.6" y="77">QA</text>
+    <text class="node-title" x="129.6" y="46.2" font-size="20">Test</text>
+    <text class="node-subtitle" x="129.6" y="77" font-size="16">QA</text>
   </g>
   <g class="node node-green" transform="translate(1130.4 70.2)" filter="url(#shadow)">
     <rect width="259.2" height="104" rx="18" fill="#ecfdf5" stroke="#15803d"/>
-    <text class="node-title" x="129.6" y="52.5">Done</text>
+    <text class="node-title" x="129.6" y="56.7" font-size="20">Done</text>
   </g>
 </svg>

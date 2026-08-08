@@ -75,6 +75,37 @@ CENTER_TITLE_RATIO, CENTER_DETAIL_RATIO = 0.22, 0.72
 CENTER_TITLE_MIN, CENTER_TITLE_MAX = 16, 44
 CENTER_TRACKING = 0.08
 CENTER_DETAIL_LINES = 3
+CAP_HALF = 0.36
+# Where each icon's ink actually starts and ends inside its box, as a fraction of
+# the box, measured by scripts/measure_icons.py. Artwork does not fill the slot
+# evenly, so centring an icon-and-label group on the box leaves the group looking
+# off-centre and the icon-to-text gap different on every card.
+ICON_INK = {
+    "api": (0.083, 0.917),
+    "browser": (0.025, 0.975),
+    "check": (0.083, 0.917),
+    "close": (0.083, 0.917),
+    "database": (0.158, 0.842),
+    "document": (0.208, 0.792),
+    "github": (0.025, 0.975),
+    "issue": (0.083, 0.917),
+    "message": (0.125, 0.875),
+    "number-1": (0.042, 0.958),
+    "number-2": (0.042, 0.958),
+    "number-3": (0.042, 0.958),
+    "openai": (0.0, 1.0),
+    "pull-request": (0.108, 0.892),
+    "rank-fusion": (0.083, 0.917),
+    "search": (0.15, 0.892),
+    "settings": (0.042, 0.958),
+    "sparkles": (0.05, 0.95),
+    "user": (0.167, 0.833),
+    "video": (0.083, 0.917),
+    "warning": (0.067, 0.933),
+    "websocket": (0.125, 0.875),
+}
+DEFAULT_ICON_INK = (0.083, 0.917)
+EYEBROW_SIZE = 13
 EYEBROW_INK, EYEBROW_GAP = 10, 10
 SUBTITLE_GAP, SUBTITLE_ASCENT, SUBTITLE_DESCENT = 9, 12, 5
 SUBTITLE_LINE, SUBTITLE_LINES = 22, 3
@@ -345,7 +376,7 @@ def render_svg_text(
     if spec.center is not None:
         parts.extend(("", _draw_center(spec, canvas_width, canvas_height)))
     parts.append("")
-    parts.extend(_draw_node(node, boxes[node.id]) for node in spec.nodes)
+    parts.extend(_draw_node(node, boxes[node.id], spec.layout.font_scale) for node in spec.nodes)
     parts.append("</svg>\n")
     return "\n".join(parts)
 
@@ -687,31 +718,39 @@ def _fit(text: str, available: float, size: int, weight: int) -> str:
     return f' textLength="{_number(available)}" lengthAdjust="spacingAndGlyphs"'
 
 
-def _draw_node(node: Node, box: Box) -> str:
+def _draw_node(node: Node, box: Box, scale: float = 1.0) -> str:
     palette = PALETTES[node.color]
     if node.variant == "icon":
         return _draw_icon_node(node, box, palette)
     plain = node.variant == "plain"
-    icon_size = ICON_SIZE
+    # One scale drives glyph sizes and the vertical rhythm together, so a card
+    # with bigger type keeps the same proportions rather than just crowding.
+    title_size = round(TITLE_SIZE * scale)
+    subtitle_size = round(SUBTITLE_SIZE * scale)
+    eyebrow_size = round(EYEBROW_SIZE * scale)
+    icon_size = round(ICON_SIZE * scale)
+    gutter = ICON_GUTTER * scale
     compact = box.height < 80
     subtitle_lines = (
-        _wrap_lines(node.subtitle, box.width - 32, SUBTITLE_SIZE, SUBTITLE_WEIGHT, SUBTITLE_LINES)
+        _wrap_lines(node.subtitle, box.width - 32, subtitle_size, SUBTITLE_WEIGHT, SUBTITLE_LINES)
         if node.subtitle
         else []
     )
     # Every row the card carries belongs to one block centered on the card, so
     # the stack is measured top-down and then placed, rather than nudged.
-    eyebrow_room = EYEBROW_INK + EYEBROW_GAP if node.eyebrow else 0
+    eyebrow_room = (EYEBROW_INK + EYEBROW_GAP) * scale if node.eyebrow else 0
     subtitle_room = (
-        SUBTITLE_GAP + SUBTITLE_ASCENT + (len(subtitle_lines) - 1) * SUBTITLE_LINE
+        (SUBTITLE_GAP + SUBTITLE_ASCENT + (len(subtitle_lines) - 1) * SUBTITLE_LINE) * scale
         if subtitle_lines
         else 0
-    ) + SUBTITLE_DESCENT
+    ) + SUBTITLE_DESCENT * scale
     block_top = (box.height - (eyebrow_room + icon_size + subtitle_room)) / 2
     icon_y = 19 if compact else block_top + eyebrow_room
-    title_y = 27 if compact else icon_y + 20
-    subtitle_y = 50 if compact else icon_y + icon_size + SUBTITLE_GAP + SUBTITLE_ASCENT
-    eyebrow_y = 25 if compact else block_top + EYEBROW_INK
+    # The title's cap height centres on the icon's middle, not its baseline, or
+    # the glyph hangs below the text it labels.
+    title_y = 27 if compact else icon_y + icon_size / 2 + title_size * CAP_HALF
+    subtitle_y = 50 if compact else icon_y + icon_size + (SUBTITLE_GAP + SUBTITLE_ASCENT) * scale
+    eyebrow_y = 25 if compact else block_top + EYEBROW_INK * scale
     center_x = box.width / 2
     radius = 16 if compact else 18
     shadow = "" if plain else ' filter="url(#shadow)"'
@@ -727,15 +766,19 @@ def _draw_node(node: Node, box: Box) -> str:
         )
     if node.eyebrow:
         lines.append(
-            f'    <text class="eyebrow" x="{_number(center_x)}" y="{_number(eyebrow_y)}">'
+            f'    <text class="eyebrow" x="{_number(center_x)}" y="{_number(eyebrow_y)}" '
+            f'font-size="{eyebrow_size}">'
             f"{escape(node.eyebrow)}</text>"
         )
     # Icon and title are one centered group: a left-aligned row would leave the
     # right half of the card empty, and a centered subtitle under a left-aligned
     # title puts the two lines on competing axes.
-    title_width = box.width - (72 if node.icon else 32)
-    title_room = min(_text_width(node.title, TITLE_SIZE, TITLE_WEIGHT), title_width)
-    group_x = (box.width - (icon_size + ICON_GUTTER + title_room)) / 2 if node.icon else 0
+    ink_start, ink_end = ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)
+    ink_left, ink_width = ink_start * icon_size, (ink_end - ink_start) * icon_size
+    title_width = box.width - (2 * (16 + gutter) + ink_width if node.icon else 32)
+    title_room = min(_text_width(node.title, title_size, TITLE_WEIGHT), title_width)
+    # Centre what is visible: the icon's ink plus the gutter plus the title.
+    group_x = (box.width - (ink_width + gutter + title_room)) / 2 - ink_left if node.icon else 0
     if node.icon == "mention":
         lines.append(
             f'    <text class="mention-icon" x="{_number(group_x + icon_size / 2)}" '
@@ -747,18 +790,20 @@ def _draw_node(node: Node, box: Box) -> str:
             f'y="{_number(icon_y)}" '
             f'width="{icon_size}" height="{icon_size}" color="{palette.stroke}"/>'
         )
-    title_x = group_x + icon_size + ICON_GUTTER if node.icon else center_x
+    title_x = group_x + ink_left + ink_width + gutter if node.icon else center_x
     title_class = "node-title icon-copy" if node.icon else "node-title"
     lines.append(
         f'    <text class="{title_class}" x="{_number(title_x)}" '
-        f'y="{_number(title_y)}"{_fit(node.title, title_width, TITLE_SIZE, TITLE_WEIGHT)}>'
+        f'y="{_number(title_y)}" font-size="{title_size}"'
+        f"{_fit(node.title, title_width, title_size, TITLE_WEIGHT)}>"
         f"{escape(node.title)}</text>"
     )
     for index, line in enumerate(subtitle_lines):
         lines.append(
             f'    <text class="node-subtitle" x="{_number(center_x)}" '
-            f'y="{_number(subtitle_y + index * SUBTITLE_LINE)}"'
-            f"{_fit(line, box.width - 32, SUBTITLE_SIZE, SUBTITLE_WEIGHT)}>"
+            f'y="{_number(subtitle_y + index * SUBTITLE_LINE * scale)}" '
+            f'font-size="{subtitle_size}"'
+            f"{_fit(line, box.width - 32, subtitle_size, SUBTITLE_WEIGHT)}>"
             f"{escape(line)}</text>"
         )
     lines.append("  </g>")

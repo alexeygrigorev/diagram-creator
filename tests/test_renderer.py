@@ -416,7 +416,7 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     assert all(float(arc[0]) == pytest.approx(radii[0], abs=0.5) for arc in arcs)
     assert '<symbol id="icon-database"' in svg
     assert ">@</text>" in svg
-    assert 'textLength="188"' in svg
+    assert 'font-size="20"' in svg  # node titles carry an explicit, scalable size
     assert "Each failure improves the data" in svg
 
 
@@ -692,16 +692,21 @@ def test_card_with_an_icon_shares_one_text_axis_and_centers_its_block(tmp_path):
     # the card's center axis and neither leaves the far half of the card empty.
     from diagram_creator.renderer import (
         ICON_GUTTER,
+        ICON_INK,
         ICON_SIZE,
         TITLE_SIZE,
         TITLE_WEIGHT,
         _text_width,
     )
 
+    # Centred on ink, not on the icon's box: the document glyph fills barely half
+    # its box, so a box-centred group sits visibly left.
+    ink_start, ink_end = ICON_INK["document"]
+    ink_left = icon_x + ink_start * ICON_SIZE
     group_end = title_x + _text_width("Docs", TITLE_SIZE, TITLE_WEIGHT)
-    assert (icon_x + group_end) / 2 == pytest.approx(240 / 2, abs=0.5)
+    assert (ink_left + group_end) / 2 == pytest.approx(240 / 2, abs=0.5)
     assert subtitle_x == pytest.approx(240 / 2, abs=0.5)
-    assert title_x == pytest.approx(icon_x + ICON_SIZE + ICON_GUTTER, abs=0.5)
+    assert title_x == pytest.approx(icon_x + ink_end * ICON_SIZE + ICON_GUTTER, abs=0.5)
     # Icon top through subtitle descender is centered on the 110px card.
     assert (icon_y + subtitle_y + 4) / 2 == pytest.approx(55, abs=2)
 
