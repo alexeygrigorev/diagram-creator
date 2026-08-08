@@ -811,9 +811,15 @@ def _ring_chord_arc(
     start_anchor, end_anchor = _default_anchors(source, target)
     start = _anchor(source, edge.source_anchor or start_anchor)
     end = _anchor(target, edge.target_anchor or end_anchor)
-    half_chord = math.hypot(end[0] - start[0], end[1] - start[1]) / 2
-    if half_chord >= ring.radius:
+    span = math.hypot(end[0] - start[0], end[1] - start[1])
+    if span <= 2 * RING_EDGE_GAP or span / 2 >= ring.radius:
         return _line_path(start, end)
+    # Hold the same standoff the arcs keep, so every connector clears its card
+    # by the same distance.
+    inset_x = (end[0] - start[0]) * RING_EDGE_GAP / span
+    inset_y = (end[1] - start[1]) * RING_EDGE_GAP / span
+    start = (start[0] + inset_x, start[1] + inset_y)
+    end = (end[0] - inset_x, end[1] - inset_y)
     radius = _number(ring.radius)
     return (
         f"M{_point(start)}A{radius} {radius} 0 0 1 {_point(end)}",
