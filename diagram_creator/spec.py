@@ -16,7 +16,7 @@ ROUTES = {"forward", "below", "straight", "curve", "ring", "step"}
 STAIRCASE_DIRECTIONS = {"descending", "ascending"}
 ANCHORS = {"left", "right", "top", "bottom"}
 NODE_VARIANTS = {"card", "icon", "plain"}
-ICON_POSITIONS = {"leading", "above"}
+ICON_POSITIONS = {"inline", "block"}
 ICONS = {
     "github",
     "search",
@@ -63,7 +63,7 @@ class Layout:
     direction: str = "clockwise"
     margin: float | None = None
     font_scale: float = 1.0
-    icon_position: str = "leading"
+    icon_position: str = "inline"
     step_x: float | None = None
     step_y: float | None = None
 
@@ -222,7 +222,7 @@ def _parse_layout(data: Any) -> Layout:
     row_height = _optional_number(data, "row_height", "layout")
     margin = _optional_number(data, "margin", "layout")
     font_scale = _optional_number(data, "font_scale", "layout")
-    icon_position = data.get("icon_position", "leading")
+    icon_position = data.get("icon_position", "inline")
     if icon_position not in ICON_POSITIONS:
         raise SpecError(
             f"layout 'icon_position' must be one of: {', '.join(sorted(ICON_POSITIONS))}"

@@ -56,8 +56,11 @@ identical radius and identical length. Curvature and length are both things the
 eye compares, so a connector that is shorter, or on a tighter radius, reads as a
 different shape even when its endpoints are right.
 
+The renderer enforces this: a ring whose connectors differ in length by more
+than 10 percent is rejected, with the card height that would even them out.
+
 Check: chord length and arc radius of every connector. Radius spread under
-0.5 px always; chord spread under about 10 percent.
+0.5 px always; chord spread under 10 percent, or it will not render.
 
 Equal chords and touching cards pull against each other. Forcing one shared
 angular standoff makes the chords identical but then only the card needing the

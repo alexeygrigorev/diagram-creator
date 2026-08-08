@@ -19,7 +19,7 @@ STEP_EDGE = re.compile(
 )
 
 
-def ring_spec(width, height, *, count=5, margin=None, card=(220, 90)):
+def ring_spec(width, height, *, count=5, margin=None, card=(220, 205)):
     layout = {"type": "ring", "card_width": card[0], "card_height": card[1]}
     if margin is not None:
         layout["margin"] = margin
@@ -343,8 +343,8 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     spec = DiagramSpec.from_dict(
         {
             "title": "Continuous FAQ loop",
-            "canvas": {"width": 940, "height": 800},
-            "layout": {"type": "ring", "card_width": 260, "card_height": 100},
+            "canvas": {"width": 940, "height": 947},
+            "layout": {"type": "ring", "card_width": 260, "card_height": 247},
             "nodes": [
                 {
                     "id": "contribute",
@@ -401,8 +401,8 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     render_diagram(spec, output)
 
     svg = output.read_text()
-    assert 'width="940" height="800"' in svg
-    centers = ring_card_centers(svg, 260, 100)
+    assert 'width="940" height="947"' in svg
+    centers = ring_card_centers(svg, 260, 247)
     assert len(centers) == 5
     center_x, center_y = ring_center(centers)
     radii = [math.hypot(x - center_x, y - center_y) for x, y in centers]
@@ -431,7 +431,7 @@ def ring_arcs(svg):
 
 
 def test_ring_connectors_touch_the_cards_they_join(tmp_path):
-    spec = ring_spec(1000, 1000)
+    spec = ring_spec(1040, 1010)
     output = tmp_path / "loop.svg"
 
     render_diagram(spec, output)
@@ -440,7 +440,7 @@ def test_ring_connectors_touch_the_cards_they_join(tmp_path):
     arcs = ring_arcs(svg)
     assert len(arcs) == 5
     boxes = [
-        (x, y, x + 220, y + 90) for x, y in (map(float, n) for n in NODE_TRANSFORM.findall(svg))
+        (x, y, x + 220, y + 205) for x, y in (map(float, n) for n in NODE_TRANSFORM.findall(svg))
     ]
 
     def off_card(point):
@@ -458,22 +458,32 @@ def test_ring_connectors_touch_the_cards_they_join(tmp_path):
         assert off_card((end_x, end_y)) < 1.5
 
 
-def test_ring_arcs_are_near_equal_on_a_square_card(tmp_path):
-    # Touching every card is exact; equal arc lengths are not, because a card
-    # presents a different angular width at each slot. It converges as the card
-    # approaches square, so that is the shape a loop should aim for.
-    output = tmp_path / "loop.svg"
-    spreads = []
-    for card in ((220, 90), (195, 176)):
-        render_diagram(ring_spec(875, 826, card=card), output)
-        chords = [math.hypot(a[3] - a[0], a[4] - a[1]) for a in ring_arcs(output.read_text())]
-        spreads.append((max(chords) - min(chords)) / min(chords))
-    assert spreads[1] < spreads[0]
-    assert spreads[1] < 0.15
+def test_ring_rejects_connectors_of_different_lengths(tmp_path):
+    # A card presents a different angular width at each slot unless it is close
+    # to square, so a wide flat one makes the bottom arc far shorter than the
+    # top. That is the most visible way a loop stops reading as one circle, so
+    # the renderer refuses it rather than leaving it to whoever picks the size.
+    spec = ring_spec(1040, 1010, card=(220, 90))
+
+    with pytest.raises(SpecError, match="ring connectors differ in length"):
+        render_diagram(spec, tmp_path / "loop.svg")
+
+
+def test_ring_error_names_a_card_height_that_evens_the_connectors(tmp_path):
+    with pytest.raises(SpecError) as failure:
+        render_diagram(ring_spec(1040, 1010, card=(220, 90)), tmp_path / "loop.svg")
+    suggested = float(re.search(r"card_height of about (\d+)", str(failure.value)).group(1))
+
+    # Taking the advice produces a diagram that renders.
+    output = tmp_path / "fixed.svg"
+    render_diagram(ring_spec(1040, 1010, card=(220, suggested)), output)
+
+    chords = [math.hypot(a[3] - a[0], a[4] - a[1]) for a in ring_arcs(output.read_text())]
+    assert (max(chords) - min(chords)) / min(chords) <= 0.10
 
 
 def test_center_detail_sits_clear_of_the_annotation_circle(tmp_path):
-    spec = ring_spec(940, 800)
+    spec = ring_spec(1040, 1010)
     output = tmp_path / "loop.svg"
 
     render_diagram(spec, output)
@@ -488,13 +498,13 @@ def test_center_detail_sits_clear_of_the_annotation_circle(tmp_path):
 
 
 def test_ring_layout_centers_the_annotation_on_the_circle(tmp_path):
-    spec = ring_spec(940, 800)
+    spec = ring_spec(1040, 1010)
     output = tmp_path / "loop.svg"
 
     render_diagram(spec, output)
 
     svg = output.read_text()
-    center_x, center_y = ring_center(ring_card_centers(svg, 220, 90))
+    center_x, center_y = ring_center(ring_card_centers(svg, 220, 205))
     annotation = re.search(r'<circle class="center-annotation" cx="([-\d.]+)" cy="([-\d.]+)"', svg)
     assert annotation is not None
     assert (float(annotation.group(1)), float(annotation.group(2))) == pytest.approx(
@@ -504,12 +514,12 @@ def test_ring_layout_centers_the_annotation_on_the_circle(tmp_path):
 
 @pytest.mark.parametrize("count", [3, 4, 6, 7])
 def test_ring_layout_supports_other_node_counts(count, tmp_path):
-    spec = ring_spec(940, 940, count=count)
     output = tmp_path / "loop.svg"
+    # Cards small relative to the radius keep the connectors even at any count;
+    # the shape that does so at a given count is otherwise count-dependent.
+    render_diagram(ring_spec(1120, 1100, count=count, card=(150, 140)), output)
 
-    render_diagram(spec, output)
-
-    centers = ring_card_centers(output.read_text(), 220, 90)
+    centers = ring_card_centers(output.read_text(), 150, 140)
     assert len(centers) == count
     center_x, center_y = ring_center(centers)
     radii = [math.hypot(x - center_x, y - center_y) for x, y in centers]
@@ -526,10 +536,10 @@ def test_ring_layout_rejects_a_canvas_that_overlaps_cards(tmp_path):
 
 def test_ring_layout_margin_shrinks_the_circle(tmp_path):
     def radius(margin):
-        spec = ring_spec(940, 800, margin=margin)
+        spec = ring_spec(1040, 1010, margin=margin)
         output = tmp_path / f"loop-{margin}.svg"
         render_diagram(spec, output)
-        centers = ring_card_centers(output.read_text(), 220, 90)
+        centers = ring_card_centers(output.read_text(), 220, 205)
         center_x, center_y = ring_center(centers)
         return math.hypot(centers[0][0] - center_x, centers[0][1] - center_y)
 
@@ -638,8 +648,8 @@ def test_titles_share_one_size_rather_than_being_squeezed(tmp_path):
     # while leaving its neighbour untouched - visibly different letterforms.
     spec = DiagramSpec.from_dict(
         {
-            "canvas": {"width": 881, "height": 735},
-            "layout": {"type": "ring", "card_width": 230, "card_height": 112},
+            "canvas": {"width": 900, "height": 856},
+            "layout": {"type": "ring", "card_width": 230, "card_height": 216},
             "nodes": [
                 {"id": "a", "title": "Interview", "icon": "message"},
                 {"id": "b", "title": "Apply", "icon": "document"},

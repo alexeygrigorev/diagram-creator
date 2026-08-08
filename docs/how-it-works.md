@@ -38,6 +38,13 @@ instance - following it would sag underneath them, so that pair joins its facing
 sides on a tighter arc that rises off its chord by the same proportion a full
 ring slot does. Every connector still reads as part of one loop.
 
+A ring is rejected when its connectors would come out visibly different lengths.
+A card presents a different angular width at each slot unless it is close to
+square, so a wide flat card makes the arc between the bottom pair far shorter
+than the arc over the top - the most visible way a loop stops reading as one
+circle. The error names the card height that evens them out, found by trying
+heights and keeping the one with the smallest spread.
+
 A step route is one elbow: out of a card's side, along to the point halfway
 between the two cards' trailing edges, then a rounded turn into the next card's
 top or bottom edge. Placing the turn by the two boxes rather than by the layout

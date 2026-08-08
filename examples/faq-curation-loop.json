@@ -3,13 +3,13 @@
   "description": "Students contribute FAQ issues, useful Slack discussions become reviewed records, the dataset is indexed and deployed, Au-Tomator answers questions, and incomplete answers become evaluation cases that guide the next FAQ improvements.",
   "canvas": {
     "width": 940,
-    "height": 800,
+    "height": 947,
     "background": "#ffffff"
   },
   "layout": {
     "type": "ring",
     "card_width": 260,
-    "card_height": 100
+    "card_height": 247
   },
   "nodes": [
     {
@@ -22,7 +22,7 @@
     {
       "id": "curate",
       "title": "Curate discussions",
-      "subtitle": "Slack → reviewed FAQ records",
+      "subtitle": "Slack \u2192 reviewed FAQ records",
       "color": "purple",
       "icon": "message"
     },
@@ -49,11 +49,31 @@
     }
   ],
   "edges": [
-    {"from": "contribute", "to": "curate", "route": "ring"},
-    {"from": "curate", "to": "deploy", "route": "ring"},
-    {"from": "deploy", "to": "answer", "route": "ring"},
-    {"from": "answer", "to": "evaluate", "route": "ring"},
-    {"from": "evaluate", "to": "contribute", "route": "ring"}
+    {
+      "from": "contribute",
+      "to": "curate",
+      "route": "ring"
+    },
+    {
+      "from": "curate",
+      "to": "deploy",
+      "route": "ring"
+    },
+    {
+      "from": "deploy",
+      "to": "answer",
+      "route": "ring"
+    },
+    {
+      "from": "answer",
+      "to": "evaluate",
+      "route": "ring"
+    },
+    {
+      "from": "evaluate",
+      "to": "contribute",
+      "route": "ring"
+    }
   ],
   "center": {
     "title": "CURATION",

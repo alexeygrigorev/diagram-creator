@@ -58,6 +58,10 @@ RING_MARGIN = 40
 RING_EDGE_GAP = 0
 RING_ARC_SAMPLES = 240
 RING_CARD_GAP = 24
+# How much the ring's connectors may differ in length before the diagram is
+# rejected. Unequal arrows are the most visible way a loop stops reading as one
+# circle, so this is enforced rather than left to whoever picks the card size.
+RING_CHORD_TOLERANCE = 0.10
 STAIRCASE_MARGIN = 40
 STAIRCASE_STEP_GAP = 18
 # The tightest horizontal advance, as a share of the card width. Cards may
@@ -336,6 +340,8 @@ def render_svg_text(
     canvas_height = spec.canvas.height if height is None else height
     _validate_canvas(canvas_width, canvas_height)
     boxes = _layout(spec, canvas_width, canvas_height)
+    if spec.layout.type == "ring":
+        _check_ring_chords(spec, _ring_geometry(spec, canvas_width, canvas_height), boxes)
     symbols = _symbols_for(spec)
     markers = "\n".join(
         f'<marker id="arrow-{name}" viewBox="0 0 10 10" refX="9" refY="5" '
@@ -379,7 +385,7 @@ def render_svg_text(
     parts.append("")
     title_size = _card_title_size(spec, boxes)
     subtitle_size = _card_subtitle_size(spec, boxes)
-    stacked = spec.layout.icon_position == "above"
+    stacked = spec.layout.icon_position == "block"
     parts.extend(
         _draw_node(
             node,
@@ -681,6 +687,68 @@ def _bisect(limit: float, holds: Callable[[float], bool], *, keep_low: bool) -> 
     return low if keep_low else high
 
 
+def _ring_chords(spec: DiagramSpec, ring: Ring, boxes: dict[str, Box]) -> list[float]:
+    """Straight-line length of every connector, in JSON order."""
+    span = 2 * math.pi / ring.count
+    lengths = []
+    for index, node in enumerate(spec.nodes):
+        following = spec.nodes[(index + 1) % len(spec.nodes)]
+        start = _ring_exit(ring, boxes[node.id], ring.angle(index), span)
+        end = _ring_exit(ring, boxes[following.id], ring.angle(index) + span, -span)
+        first, second = ring.point(start), ring.point(end)
+        lengths.append(math.hypot(second[0] - first[0], second[1] - first[1]))
+    return lengths
+
+
+def _check_ring_chords(spec: DiagramSpec, ring: Ring, boxes: dict[str, Box]) -> None:
+    """Reject a ring whose connectors would come out visibly different lengths.
+
+    A card presents a different angular width at each slot unless it is close to
+    square, so a wide flat card makes the arc between the bottom pair far shorter
+    than the arc over the top. Squaring the card up is the fix, so the error says
+    which height would do it.
+    """
+    lengths = _ring_chords(spec, ring, boxes)
+    if not lengths or min(lengths) <= 0:
+        return
+    spread = (max(lengths) - min(lengths)) / min(lengths)
+    if spread <= RING_CHORD_TOLERANCE:
+        return
+    width = spec.layout.card_width or 260
+    suggestion = _ring_even_height(spec, ring, boxes, width)
+    advice = (
+        f"; card_height of about {suggestion:.0f} evens them out"
+        if suggestion is not None
+        else "; use a squarer card"
+    )
+    raise SpecError(
+        f"ring connectors differ in length by {spread:.0%} "
+        f"(longest {max(lengths):.0f}px, shortest {min(lengths):.0f}px){advice}"
+    )
+
+
+def _ring_even_height(
+    spec: DiagramSpec, ring: Ring, boxes: dict[str, Box], width: float
+) -> float | None:
+    """The card height that brings the connectors closest to equal length."""
+    # Only heights that could hold a card's content are worth suggesting; a
+    # sliver of a card also evens the arcs out, and is no use to anyone.
+    best: tuple[float, float] | None = None
+    for step in range(30, 251):
+        candidate = width * step / 100
+        trial = {
+            key: Box(box.center_x - width / 2, box.center_y - candidate / 2, width, candidate)
+            for key, box in boxes.items()
+        }
+        lengths = _ring_chords(spec, ring, trial)
+        if min(lengths) <= 0:
+            continue
+        spread = (max(lengths) - min(lengths)) / min(lengths)
+        if best is None or spread < best[0]:
+            best = (spread, candidate)
+    return None if best is None or best[0] > RING_CHORD_TOLERANCE else best[1]
+
+
 def _ring_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
     card_width = spec.layout.card_width or 260
     card_height = spec.layout.card_height or 100
@@ -737,7 +805,7 @@ def _card_title_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
     wanted = round(TITLE_SIZE * scale)
     icon_size, gutter = round(ICON_SIZE * scale), ICON_GUTTER * scale
     # An icon above the title leaves the title the card's full inner width.
-    stacked = spec.layout.icon_position == "above"
+    stacked = spec.layout.icon_position == "block"
     for size in range(wanted, 7, -1):
         if all(
             _text_width(node.title, size, TITLE_WEIGHT)

@@ -165,10 +165,10 @@ order and the renderer cascades them, so edges need no route of their own:
 
 Two layout options apply to cards in any layout. `font_scale` scales card type
 and its vertical rhythm together, for a diagram that has to stay legible after
-being scaled down to a phone. `icon_position` is `leading` (icon beside the
-title) or `above` (icon over a centered title); `above` needs roughly half the
-card width for the same title, which makes cards squarer - worth it in a ring,
-where flat cards give uneven gaps and unequal connector lengths.
+being scaled down to a phone. `icon_position` is `inline` (icon beside the
+title) or `block` (icon over a centered title); `block` needs roughly half the
+card width for the same title, which makes cards squarer and fills a square card
+better.
 
 Titles and subtitles are never stretched or squeezed. Each diagram picks one
 title size and one subtitle size - the largest that fits every card
