@@ -41,17 +41,17 @@
       .edge-label text { font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }
       .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }
       .center-annotation { fill: #f1f5f9; stroke: none; }
-      .center-title { font-size: 16px; font-weight: 800; letter-spacing: 1.3px; fill: #334155; text-anchor: middle; }
-      .center-detail { font-size: 13px; font-weight: 600; fill: #7a8699; text-anchor: middle; }
+      .center-title { font-size: 20px; font-weight: 800; letter-spacing: 1.6px; fill: #334155; text-anchor: middle; }
+      .center-detail { font-size: 16px; font-weight: 600; fill: #64748b; text-anchor: middle; }
     </style>
   </defs>
   <rect width="940" height="800" fill="#ffffff"/>
 
-  <path class="edge" d="M613.21 149.06A315.44 315.44 0 0 1 741.51 269.55" stroke="#64748b" marker-end="url(#arrow-gray)"/>
-  <path class="edge" d="M783.53 395.51A315.44 315.44 0 0 1 720.25 622.15" stroke="#64748b" marker-end="url(#arrow-gray)"/>
-  <path class="edge" d="M513.41 685.32A315.44 315.44 0 0 1 426.59 685.32" stroke="#64748b" marker-end="url(#arrow-gray)"/>
-  <path class="edge" d="M219.75 622.15A315.44 315.44 0 0 1 156.47 395.51" stroke="#64748b" marker-end="url(#arrow-gray)"/>
-  <path class="edge" d="M198.49 269.55A315.44 315.44 0 0 1 326.79 149.06" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M619.06 152.12A315.44 315.44 0 0 1 688.33 202.45" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M780.45 485.98A315.44 315.44 0 0 1 754 567.41" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M512.81 742.64A315.44 315.44 0 0 1 427.19 742.64" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M186 567.41A315.44 315.44 0 0 1 159.55 485.98" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M251.67 202.45A315.44 315.44 0 0 1 320.94 152.12" stroke="#64748b" marker-end="url(#arrow-gray)"/>
 
   <circle class="center-annotation" cx="470" cy="430.12" r="68"/>
   <text class="center-title" x="470" y="425.12">CURATION</text>
@@ -60,32 +60,32 @@
 
   <g class="node node-blue" transform="translate(340 64.68)" filter="url(#shadow)">
     <rect width="260" height="100" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <use href="#icon-issue" x="16" y="26" width="28" height="28" color="#2563eb"/>
-    <text class="node-title icon-copy" x="56" y="46" textLength="188" lengthAdjust="spacingAndGlyphs">Student contributions</text>
+    <use href="#icon-issue" x="16" y="25" width="28" height="28" color="#2563eb"/>
+    <text class="node-title icon-copy" x="56" y="45" textLength="188" lengthAdjust="spacingAndGlyphs">Student contributions</text>
     <text class="node-subtitle" x="130" y="71">Issues improve the FAQ dataset</text>
   </g>
   <g class="node node-purple" transform="translate(640 282.65)" filter="url(#shadow)">
     <rect width="260" height="100" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
-    <use href="#icon-message" x="25.42" y="26" width="28" height="28" color="#7c3aed"/>
-    <text class="node-title icon-copy" x="65.42" y="46">Curate discussions</text>
+    <use href="#icon-message" x="25.42" y="25" width="28" height="28" color="#7c3aed"/>
+    <text class="node-title icon-copy" x="65.42" y="45">Curate discussions</text>
     <text class="node-subtitle" x="130" y="71">Slack → reviewed FAQ records</text>
   </g>
   <g class="node node-green" transform="translate(525.41 635.32)" filter="url(#shadow)">
     <rect width="260" height="100" rx="18" fill="#ecfdf5" stroke="#15803d"/>
-    <use href="#icon-database" x="42.45" y="26" width="28" height="28" color="#15803d"/>
-    <text class="node-title icon-copy" x="82.45" y="46">Index + deploy</text>
+    <use href="#icon-database" x="42.45" y="25" width="28" height="28" color="#15803d"/>
+    <text class="node-title icon-copy" x="82.45" y="45">Index + deploy</text>
     <text class="node-subtitle" x="130" y="71">Fresh dataset ships with Lambda</text>
   </g>
   <g class="node node-purple" transform="translate(154.59 635.32)" filter="url(#shadow)">
     <rect width="260" height="100" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
-    <text class="mention-icon" x="43.87" y="49" fill="#7c3aed">@</text>
-    <text class="node-title icon-copy" x="69.87" y="46">Answer questions</text>
+    <text class="mention-icon" x="43.87" y="48" fill="#7c3aed">@</text>
+    <text class="node-title icon-copy" x="69.87" y="45">Answer questions</text>
     <text class="node-subtitle" x="130" y="71">Au-Tomator responds in Slack</text>
   </g>
   <g class="node node-red" transform="translate(40 282.65)" filter="url(#shadow)">
     <rect width="260" height="100" rx="18" fill="#fef2f2" stroke="#dc2626"/>
-    <use href="#icon-warning" x="34.37" y="26" width="28" height="28" color="#dc2626"/>
-    <text class="node-title icon-copy" x="74.37" y="46">Evaluate failures</text>
+    <use href="#icon-warning" x="34.37" y="25" width="28" height="28" color="#dc2626"/>
+    <text class="node-title icon-copy" x="74.37" y="45">Evaluate failures</text>
     <text class="node-subtitle" x="130" y="71">Missing answers reveal next fixes</text>
   </g>
 </svg>

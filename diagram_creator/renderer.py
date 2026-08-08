@@ -61,9 +61,11 @@ RING_CARD_GAP = 24
 ICON_GUTTER = 12
 TITLE_SIZE, TITLE_WEIGHT = 16, 750
 SUBTITLE_SIZE, SUBTITLE_WEIGHT = 13, 500
-DETAIL_SIZE, DETAIL_WEIGHT = 13, 500
+DETAIL_SIZE, DETAIL_WEIGHT = 16, 500
 ANNOTATION_PADDING = 14
-EYEBROW_DROP = 7
+EYEBROW_INK, EYEBROW_GAP = 9, 9
+SUBTITLE_GAP, SUBTITLE_ASCENT, SUBTITLE_DESCENT = 8, 10, 4
+SUBTITLE_LINE, SUBTITLE_LINES = 18, 3
 # Advance widths per 1 px of font size for the card font stack, measured out of
 # Chromium by scripts/measure_text.py. Widths scale linearly with font size to
 # within 0.1 px, so one table per weight covers every size the cards use.
@@ -581,6 +583,27 @@ def _ring_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
     return boxes
 
 
+def _wrap_lines(text: str, available: float, size: int, weight: int, limit: int) -> list[str]:
+    """Break a line at spaces so a card can be narrow without truncating copy."""
+    lines: list[str] = []
+    current = ""
+    for word in text.split():
+        candidate = f"{current} {word}" if current else word
+        if current and _text_width(candidate, size, weight) > available:
+            lines.append(current)
+            current = word
+            if len(lines) == limit - 1:
+                # The last line takes whatever is left and is squeezed if need be.
+                remainder = text.split()[text.split().index(word) :]
+                lines.append(" ".join(remainder))
+                return lines
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines or [text]
+
+
 def _text_width(text: str, size: int, weight: int) -> float:
     table = CHARACTER_EM[weight]
     fallback = FALLBACK_EM[weight]
@@ -601,15 +624,24 @@ def _draw_node(node: Node, box: Box) -> str:
     plain = node.variant == "plain"
     icon_size = 28
     compact = box.height < 80
-    # Every row the card carries belongs to one block that sits on the card's
-    # center. A subtitle extends the block downward and an eyebrow extends it
-    # upward, so each one shifts the icon and title row the other way.
-    lift = 10 if node.subtitle and not compact else 0
-    drop = EYEBROW_DROP if node.eyebrow and not compact else 0
-    icon_y = 19 if compact else (box.height - icon_size) / 2 - lift + drop
-    title_y = 27 if compact else box.height / 2 + 6 - lift + drop
-    subtitle_y = 50 if compact else box.height / 2 + 31 - lift + drop
-    eyebrow_y = 25 if compact else icon_y - 6
+    subtitle_lines = (
+        _wrap_lines(node.subtitle, box.width - 32, SUBTITLE_SIZE, SUBTITLE_WEIGHT, SUBTITLE_LINES)
+        if node.subtitle
+        else []
+    )
+    # Every row the card carries belongs to one block centered on the card, so
+    # the stack is measured top-down and then placed, rather than nudged.
+    eyebrow_room = EYEBROW_INK + EYEBROW_GAP if node.eyebrow else 0
+    subtitle_room = (
+        SUBTITLE_GAP + SUBTITLE_ASCENT + (len(subtitle_lines) - 1) * SUBTITLE_LINE
+        if subtitle_lines
+        else 0
+    ) + SUBTITLE_DESCENT
+    block_top = (box.height - (eyebrow_room + icon_size + subtitle_room)) / 2
+    icon_y = 19 if compact else block_top + eyebrow_room
+    title_y = 27 if compact else icon_y + 20
+    subtitle_y = 50 if compact else icon_y + icon_size + SUBTITLE_GAP + SUBTITLE_ASCENT
+    eyebrow_y = 25 if compact else block_top + EYEBROW_INK
     center_x = box.width / 2
     radius = 16 if compact else 18
     shadow = "" if plain else ' filter="url(#shadow)"'
@@ -652,12 +684,12 @@ def _draw_node(node: Node, box: Box) -> str:
         f'y="{_number(title_y)}"{_fit(node.title, title_width, TITLE_SIZE, TITLE_WEIGHT)}>'
         f"{escape(node.title)}</text>"
     )
-    if node.subtitle:
+    for index, line in enumerate(subtitle_lines):
         lines.append(
             f'    <text class="node-subtitle" x="{_number(center_x)}" '
-            f'y="{_number(subtitle_y)}"'
-            f"{_fit(node.subtitle, box.width - 32, SUBTITLE_SIZE, SUBTITLE_WEIGHT)}>"
-            f"{escape(node.subtitle)}</text>"
+            f'y="{_number(subtitle_y + index * SUBTITLE_LINE)}"'
+            f"{_fit(line, box.width - 32, SUBTITLE_SIZE, SUBTITLE_WEIGHT)}>"
+            f"{escape(line)}</text>"
         )
     lines.append("  </g>")
     return "\n".join(lines)
@@ -783,19 +815,44 @@ def _ring_path(
     if target_index != (source_index + 1) % len(node_ids):
         raise SpecError("ring edges must connect each node to the next node in JSON order")
     ring = _ring_geometry(spec, width, height)
-    start_angle = ring.angle(source_index)
     span = 2 * math.pi / ring.count
-    start = _ring_exit(ring, boxes[edge.source], start_angle, span)
-    end = _ring_exit(ring, boxes[edge.target], start_angle + span, -span)
-    if not _ring_meets_an_edge(ring.point(start), boxes[edge.source]) or not _ring_meets_an_edge(
-        ring.point(end), boxes[edge.target]
-    ):
-        # Following the circle here would sag past the cards, so this pair joins
-        # its facing sides on a shallow arc that keeps the loop's curvature.
+    pad = _ring_pad(spec, ring, boxes)
+    if pad is None:
+        # The circle leaves a card past its corner, so following it would sag
+        # behind the cards. Join the facing sides instead, on the ring's radius.
         return _ring_chord_arc(edge, boxes, ring)
+    # One pad for every connector, so all of them are the same arc of the same
+    # circle, merely rotated - identical length, identical curvature.
+    start = ring.angle(source_index) + pad
+    end = ring.angle(source_index) + span - pad
     radius = _number(ring.radius)
     path = f"M{_point(ring.point(start))}A{radius} {radius} 0 0 1 {_point(ring.point(end))}"
     return path, ring.point((start + end) / 2)
+
+
+def _ring_pad(spec: DiagramSpec, ring: Ring, boxes: dict[str, Box]) -> float | None:
+    """The one angular standoff that clears every card, or None if a card blocks it.
+
+    Taking the widest standoff any card needs and giving it to all of them makes
+    every connector the same arc of the same circle, only rotated.
+    """
+    span = 2 * math.pi / ring.count
+    pad = 0.0
+    for index, node in enumerate(spec.nodes):
+        box = boxes[node.id]
+        angle = ring.angle(index)
+        for direction in (1, -1):
+            pad = max(pad, abs(_ring_exit(ring, box, angle, direction * span) - angle))
+    pad = min(pad, span * 0.45)
+
+    cards = list(boxes.values())
+    for index in range(ring.count):
+        start = ring.angle(index) + pad
+        for step in range(RING_ARC_SAMPLES + 1):
+            x, y = ring.point(start + (span - 2 * pad) * step / RING_ARC_SAMPLES)
+            if any(c.x <= x <= c.right and c.y <= y <= c.bottom for c in cards):
+                return None
+    return pad
 
 
 def _ring_chord_arc(
@@ -825,12 +882,6 @@ def _ring_chord_arc(
         f"M{_point(start)}A{radius} {radius} 0 0 1 {_point(end)}",
         ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2),
     )
-
-
-def _ring_meets_an_edge(point: tuple[float, float], box: Box) -> bool:
-    """True when the arc leaves a card beside one of its sides, not past a corner."""
-    x, y = point
-    return box.y <= y <= box.bottom or box.x <= x <= box.right
 
 
 def _ring_exit(ring: Ring, box: Box, angle: float, span: float) -> float:
@@ -1001,8 +1052,8 @@ def _style() -> str:
   .edge-label text { font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }
   .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }
   .center-annotation { fill: #f1f5f9; stroke: none; }
-  .center-title { font-size: 16px; font-weight: 800; letter-spacing: 1.3px; fill: #334155; text-anchor: middle; }
-  .center-detail { font-size: 13px; font-weight: 600; fill: #7a8699; text-anchor: middle; }
+  .center-title { font-size: 20px; font-weight: 800; letter-spacing: 1.6px; fill: #334155; text-anchor: middle; }
+  .center-detail { font-size: 16px; font-weight: 600; fill: #64748b; text-anchor: middle; }
 </style>"""
 
 

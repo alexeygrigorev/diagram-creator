@@ -43,8 +43,8 @@
       .edge-label text { font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }
       .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }
       .center-annotation { fill: #f1f5f9; stroke: none; }
-      .center-title { font-size: 16px; font-weight: 800; letter-spacing: 1.3px; fill: #334155; text-anchor: middle; }
-      .center-detail { font-size: 13px; font-weight: 600; fill: #7a8699; text-anchor: middle; }
+      .center-title { font-size: 20px; font-weight: 800; letter-spacing: 1.6px; fill: #334155; text-anchor: middle; }
+      .center-detail { font-size: 16px; font-weight: 600; fill: #64748b; text-anchor: middle; }
     </style>
   </defs>
   <rect width="1100" height="450" fill="#ffffff"/>
@@ -56,32 +56,32 @@
 
   <g class="node node-blue" transform="translate(30 40)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <use href="#icon-document" x="26.1" y="21" width="28" height="28" color="#2563eb"/>
-    <text class="node-title icon-copy" x="66.1" y="41">Documentation</text>
+    <use href="#icon-document" x="26.1" y="20" width="28" height="28" color="#2563eb"/>
+    <text class="node-title icon-copy" x="66.1" y="40">Documentation</text>
     <text class="node-subtitle" x="115" y="66">Published guides</text>
   </g>
   <g class="node node-blue" transform="translate(30 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <use href="#icon-github" x="35.77" y="21" width="28" height="28" color="#2563eb"/>
-    <text class="node-title icon-copy" x="75.77" y="41">Course repos</text>
+    <use href="#icon-github" x="35.77" y="20" width="28" height="28" color="#2563eb"/>
+    <text class="node-title icon-copy" x="75.77" y="40">Course repos</text>
     <text class="node-subtitle" x="115" y="66">Markdown files</text>
   </g>
   <g class="node node-green" transform="translate(30 320)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#ecfdf5" stroke="#15803d"/>
-    <use href="#icon-database" x="39.52" y="21" width="28" height="28" color="#15803d"/>
-    <text class="node-title icon-copy" x="79.52" y="41">FAQ dataset</text>
+    <use href="#icon-database" x="39.52" y="20" width="28" height="28" color="#15803d"/>
+    <text class="node-title icon-copy" x="79.52" y="40">FAQ dataset</text>
     <text class="node-subtitle" x="115" y="66">Reviewed records</text>
   </g>
   <g class="node node-amber" transform="translate(435 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#fff7ed" stroke="#c2410c"/>
-    <use href="#icon-settings" x="44.62" y="21" width="28" height="28" color="#c2410c"/>
-    <text class="node-title icon-copy" x="84.62" y="41">Build index</text>
+    <use href="#icon-settings" x="44.62" y="20" width="28" height="28" color="#c2410c"/>
+    <text class="node-title icon-copy" x="84.62" y="40">Build index</text>
     <text class="node-subtitle" x="115" y="66">Combine all sources</text>
   </g>
   <g class="node node-purple" transform="translate(840 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
-    <use href="#icon-search" x="32.77" y="21" width="28" height="28" color="#7c3aed"/>
-    <text class="node-title icon-copy" x="72.77" y="41">FAQ assistant</text>
+    <use href="#icon-search" x="32.77" y="20" width="28" height="28" color="#7c3aed"/>
+    <text class="node-title icon-copy" x="72.77" y="40">FAQ assistant</text>
     <text class="node-subtitle" x="115" y="66">Fresh search in Lambda</text>
   </g>
 </svg>

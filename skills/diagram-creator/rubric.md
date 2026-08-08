@@ -35,14 +35,17 @@ Check: radius spread under 0.5 px, every angular step within 0.5 degrees.
 Fails when: the layout derives positions from canvas fractions, so a wide
 canvas flattens the circle.
 
-### 2. Connectors share one curvature
+### 2. Connectors are one arc repeated
 
-Every connector in a loop reads as part of the same circle. Curvature is what
-the eye compares, so a connector on a tighter radius reads as a different
-shape even when its endpoints are right.
+Every connector in a loop is the same arc of the same circle, only rotated -
+identical radius and identical length. Curvature and length are both things the
+eye compares, so a connector that is shorter, or on a tighter radius, reads as a
+different shape even when its endpoints are right.
 
-Check: all arc radii in the SVG match the ring radius.
-Fails when: one connector falls back to a straight line or a tighter bow.
+Check: chord length and arc radius of every connector. Both spreads under 0.5 px.
+Fails when: connectors are clipped per-card instead of sharing one angular
+standoff, which makes each arc a different length. Take the widest standoff any
+card needs and give it to all of them.
 
 ### 3. Connectors attach cleanly
 
@@ -57,9 +60,16 @@ Compute the arc's deepest point and confirm it stays inside the cards.
 Adjacent cards read as separate objects. Two cards side by side at the bottom
 of a ring are the tightest pair and set the standard.
 
-Check: smallest edge-to-edge clearance of any adjacent pair. Aim for at least
-60% of a card height; under 50% starts to read as crowding. For a five-node
-ring the bottom gap is `1.176 * radius - card_width`.
+Check: edge-to-edge clearance of EVERY adjacent pair, then the ratio of the
+widest to the tightest. Checking only one pair hides the problem - a five-node
+ring can look wrong because its side pairs are 1.76x its top pairs while every
+individual gap looks reasonable. Aim for a spread under 1.2x.
+
+Rectangles on a ring can never have exactly equal gaps: a pair side by side is
+separated along one axis, a diagonal pair corner to corner, so the three cases
+differ by construction. The spread shrinks as the cards get small relative to
+the radius, and squarer cards help. Under about 1.15x it stops reading as
+uneven. Wrapping subtitles is what lets a card be narrow enough to get there.
 
 ### 5. Cards fill their own width
 
@@ -132,6 +142,14 @@ A five-node loop scored across one session:
 - 6/10 after the geometry was fixed: true circle, even margins, annotation
   centered - but one connector on a different radius (2), bottom cards 115 px
   apart (4), and 109-148 px of empty space beside every title (5).
-- 10/10 once connectors shared the ring radius, the canvas grew to open the
-  bottom gap to 179 px, and card content was centered using measured text
-  widths.
+- Still 6/10 after that, because criterion 4 was being checked on one pair
+  only. Measured across all five, the gaps were 164/288/179/288/164 - the side
+  pairs 1.76x the top pairs - and the connectors, while sharing a radius, were
+  clipped per card so each arc was a different length.
+- 10/10 once every connector took one shared angular standoff (identical
+  43.20 degree span, identical 359.98 px chord), subtitles wrapped so the cards
+  could shrink to 170x140 against a 489 px radius, and the gap spread came down
+  to 1.15x.
+
+The lesson from that middle step: a criterion sampled on one instance is not
+checked. Measure every pair, every connector, every card.

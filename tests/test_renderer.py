@@ -396,30 +396,23 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     assert "Each failure improves the data" in svg
 
 
-def test_ring_layout_joins_bottom_cards_without_sagging_under_them(tmp_path):
-    spec = ring_spec(940, 800)
+def test_ring_connectors_are_one_arc_repeated(tmp_path):
+    spec = ring_spec(1000, 1000)
     output = tmp_path / "loop.svg"
 
     render_diagram(spec, output)
 
-    svg = output.read_text()
-    # The circle dips below two cards that straddle the bottom, so their connector
-    # joins their facing sides on a tighter arc than the ring's own.
     edges = re.findall(
         r'<path class="edge" d="M([-\d.]+) ([-\d.]+)A([\d.]+) [\d.]+ 0 0 1 ([-\d.]+) ([-\d.]+)"',
-        svg,
+        output.read_text(),
     )
     assert len(edges) == 5
-    bottom = sorted(ring_card_centers(svg, 220, 90), key=lambda point: -point[1])[:2]
-    joins = [e for e in edges if float(e[1]) == pytest.approx(bottom[0][1], abs=0.5)]
-    assert len(joins) == 1
-    start_x, start_y, radius, end_x, end_y = (float(value) for value in joins[0])
-    assert radius == pytest.approx(max(float(edge[2]) for edge in edges), abs=0.5)
-    assert end_y == pytest.approx(start_y, abs=0.5)
-    assert min(point[0] for point in bottom) < end_x < start_x < max(point[0] for point in bottom)
-    # Its deepest point stays inside the cards rather than sagging under them.
-    half_chord = (start_x - end_x) / 2
-    assert start_y + radius - math.sqrt(radius**2 - half_chord**2) < bottom[0][1] + 90 / 2
+    # One angular standoff for every card means every connector is the same arc
+    # of the same circle, only rotated - identical chord, identical radius.
+    chords = [math.hypot(float(e[3]) - float(e[0]), float(e[4]) - float(e[1])) for e in edges]
+    radii = [float(e[2]) for e in edges]
+    assert max(chords) - min(chords) < 0.5
+    assert max(radii) - min(radii) < 0.5
 
 
 def test_center_detail_sits_clear_of_the_annotation_circle(tmp_path):
@@ -587,10 +580,10 @@ def test_card_without_an_icon_keeps_both_lines_centered(tmp_path):
     assert "icon-copy" not in card  # no icon, so the title needs no start anchor
 
 
-def test_long_subtitle_is_fitted_to_the_card(tmp_path):
+def test_long_subtitle_wraps_instead_of_being_squeezed(tmp_path):
     spec = DiagramSpec.from_dict(
         {
-            "layout": {"type": "manual", "card_width": 200, "card_height": 110},
+            "layout": {"type": "manual", "card_width": 200, "card_height": 130},
             "nodes": [
                 {
                     "id": "docs",
@@ -609,7 +602,10 @@ def test_long_subtitle_is_fitted_to_the_card(tmp_path):
     render_diagram(spec, output)
 
     card = output.read_text().split('transform="translate(40 40)"', 1)[1].split("</g>", 1)[0]
-    assert 'class="node-subtitle" x="100" y="76" textLength="168"' in card
+    subtitles = re.findall(r'class="node-subtitle"[^>]*>([^<]+)<', card)
+    assert len(subtitles) > 1
+    assert " ".join(subtitles) == "A subtitle far too long for this narrow card"
+    assert "textLength" not in card  # wrapping means nothing needs compressing
 
 
 def test_draws_a_dashed_divider_between_grid_rows(tmp_path):
