@@ -26,8 +26,16 @@ are arcs of the layout circle itself: the router walks the arc away from each
 card until it clears that card's box, then joins the two points with a single
 SVG `A` command, so every connector shares one curvature. Where the circle only
 grazes a corner - two cards straddling the bottom of a five-node ring, for
-instance - an arc would sag underneath them, so those two cards get a direct
-connector between their facing sides instead.
+instance - following it would sag underneath them, so that pair joins its facing
+sides on a tighter arc that rises off its chord by the same proportion a full
+ring slot does. Every connector still reads as part of one loop.
+
+Titles and subtitles are squeezed with `textLength` only when they would
+overflow their column. Deciding that needs a text width before any browser has
+laid the text out, so the renderer carries a table of advance widths per 1 px of
+font size, measured out of Chromium by `scripts/measure_text.py`. Widths scale
+linearly with font size, so one table per weight covers every size the cards
+use.
 
 ## Drawing order
 

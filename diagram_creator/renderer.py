@@ -58,8 +58,181 @@ RING_MARGIN = 40
 RING_EDGE_GAP = 12
 RING_ARC_SAMPLES = 240
 RING_CARD_GAP = 24
-TITLE_CHARACTER = 9.5
-SUBTITLE_CHARACTER = 7.3
+TITLE_SIZE, TITLE_WEIGHT = 16, 750
+SUBTITLE_SIZE, SUBTITLE_WEIGHT = 14, 500
+# Advance widths per 1 px of font size for the card font stack, measured out of
+# Chromium by scripts/measure_text.py. Widths scale linearly with font size to
+# within 0.1 px, so one table per weight covers every size the cards use.
+CHARACTER_EM = {
+    500: {
+        " ": 0.3179,
+        "!": 0.4,
+        "#": 0.8357,
+        "%": 0.95,
+        "&": 0.7786,
+        "'": 0.2714,
+        "(": 0.3929,
+        ")": 0.3929,
+        "+": 0.8429,
+        ",": 0.3143,
+        "-": 0.3571,
+        ".": 0.3143,
+        "/": 0.3357,
+        "0": 0.6357,
+        "1": 0.6357,
+        "2": 0.6357,
+        "3": 0.6357,
+        "4": 0.6357,
+        "5": 0.6357,
+        "6": 0.6357,
+        "7": 0.6357,
+        "8": 0.6357,
+        "9": 0.6357,
+        ":": 0.3357,
+        ";": 0.3357,
+        "?": 0.5286,
+        "@": 1.0,
+        "A": 0.7071,
+        "B": 0.6857,
+        "C": 0.7,
+        "D": 0.7714,
+        "E": 0.6357,
+        "F": 0.5786,
+        "G": 0.7714,
+        "H": 0.7571,
+        "I": 0.3,
+        "J": 0.3,
+        "K": 0.65,
+        "L": 0.5571,
+        "M": 0.8643,
+        "N": 0.75,
+        "O": 0.7857,
+        "P": 0.6,
+        "Q": 0.7857,
+        "R": 0.6929,
+        "S": 0.6357,
+        "T": 0.5929,
+        "U": 0.7286,
+        "V": 0.6857,
+        "W": 0.9929,
+        "X": 0.6857,
+        "Y": 0.6071,
+        "Z": 0.6857,
+        "_": 0.5,
+        "a": 0.6143,
+        "b": 0.6357,
+        "c": 0.55,
+        "d": 0.6357,
+        "e": 0.6143,
+        "f": 0.3429,
+        "g": 0.6357,
+        "h": 0.6357,
+        "i": 0.2786,
+        "j": 0.2786,
+        "k": 0.5786,
+        "l": 0.2786,
+        "m": 0.9714,
+        "n": 0.6357,
+        "o": 0.6071,
+        "p": 0.6357,
+        "q": 0.6357,
+        "r": 0.3929,
+        "s": 0.5214,
+        "t": 0.3929,
+        "u": 0.6357,
+        "v": 0.5929,
+        "w": 0.8214,
+        "x": 0.5929,
+        "y": 0.5929,
+        "z": 0.5286,
+        "→": 0.8357,
+    },
+    750: {
+        " ": 0.3469,
+        "!": 0.4562,
+        "#": 0.8375,
+        "%": 1.0063,
+        "&": 0.875,
+        "'": 0.3063,
+        "(": 0.4562,
+        ")": 0.4562,
+        "+": 0.8375,
+        ",": 0.3812,
+        "-": 0.4125,
+        ".": 0.3812,
+        "/": 0.3625,
+        "0": 0.6937,
+        "1": 0.6937,
+        "2": 0.7,
+        "3": 0.6937,
+        "4": 0.6937,
+        "5": 0.6937,
+        "6": 0.6937,
+        "7": 0.6937,
+        "8": 0.6937,
+        "9": 0.6937,
+        ":": 0.4,
+        ";": 0.4,
+        "?": 0.5813,
+        "@": 1.0,
+        "A": 0.7688,
+        "B": 0.7625,
+        "C": 0.7312,
+        "D": 0.8313,
+        "E": 0.6813,
+        "F": 0.6813,
+        "G": 0.8187,
+        "H": 0.8313,
+        "I": 0.3688,
+        "J": 0.3688,
+        "K": 0.775,
+        "L": 0.6375,
+        "M": 0.9938,
+        "N": 0.8313,
+        "O": 0.85,
+        "P": 0.7312,
+        "Q": 0.85,
+        "R": 0.7688,
+        "S": 0.675,
+        "T": 0.7063,
+        "U": 0.8125,
+        "V": 0.7688,
+        "W": 1.1062,
+        "X": 0.775,
+        "Y": 0.725,
+        "Z": 0.725,
+        "_": 0.5,
+        "a": 0.675,
+        "b": 0.7188,
+        "c": 0.5938,
+        "d": 0.7188,
+        "e": 0.675,
+        "f": 0.4062,
+        "g": 0.7188,
+        "h": 0.7125,
+        "i": 0.3375,
+        "j": 0.3375,
+        "k": 0.6625,
+        "l": 0.3375,
+        "m": 1.0437,
+        "n": 0.7125,
+        "o": 0.6875,
+        "p": 0.7188,
+        "q": 0.7188,
+        "r": 0.4938,
+        "s": 0.5938,
+        "t": 0.475,
+        "u": 0.7063,
+        "v": 0.6562,
+        "w": 0.925,
+        "x": 0.6438,
+        "y": 0.6562,
+        "z": 0.5813,
+        "→": 0.8375,
+    },
+}
+# An unmeasured glyph falls back to the table's own average rather than a guess.
+FALLBACK_EM = {weight: sum(table.values()) / len(table) for weight, table in CHARACTER_EM.items()}
 DEFAULT_STANDALONE_ICON_SIZE = 56
 STANDALONE_ICON_DIMENSIONS = {
     "user": (56, 56),
@@ -404,9 +577,15 @@ def _ring_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
     return boxes
 
 
-def _fit(text: str, available: float, per_character: float) -> str:
+def _text_width(text: str, size: int, weight: int) -> float:
+    table = CHARACTER_EM[weight]
+    fallback = FALLBACK_EM[weight]
+    return size * sum(table.get(character, fallback) for character in text)
+
+
+def _fit(text: str, available: float, size: int, weight: int) -> str:
     """Squeeze a line into its column only when it would otherwise overflow."""
-    if len(text) * per_character <= available:
+    if _text_width(text, size, weight) <= available:
         return ""
     return f' textLength="{_number(available)}" lengthAdjust="spacingAndGlyphs"'
 
@@ -457,7 +636,7 @@ def _draw_node(node: Node, box: Box) -> str:
     title_width = box.width - 72 if node.icon else box.width - 32
     lines.append(
         f'    <text class="{title_class}" x="{_number(title_x)}" '
-        f'y="{_number(title_y)}"{_fit(node.title, title_width, TITLE_CHARACTER)}>'
+        f'y="{_number(title_y)}"{_fit(node.title, title_width, TITLE_SIZE, TITLE_WEIGHT)}>'
         f"{escape(node.title)}</text>"
     )
     if node.subtitle:
@@ -474,7 +653,7 @@ def _draw_node(node: Node, box: Box) -> str:
         lines.append(
             f'    <text class="{subtitle_class}" x="{_number(subtitle_x)}" '
             f'y="{_number(subtitle_y)}"'
-            f"{_fit(node.subtitle, subtitle_width, SUBTITLE_CHARACTER)}>"
+            f"{_fit(node.subtitle, subtitle_width, SUBTITLE_SIZE, SUBTITLE_WEIGHT)}>"
             f"{escape(node.subtitle)}</text>"
         )
     lines.append("  </g>")
@@ -608,12 +787,33 @@ def _ring_path(
     if not _ring_meets_an_edge(ring.point(start), boxes[edge.source]) or not _ring_meets_an_edge(
         ring.point(end), boxes[edge.target]
     ):
-        # The circle grazes a corner here, so an arc would sag past the cards instead
-        # of joining them. A direct connector reads as part of the same loop.
-        return _direct_path(edge, boxes, curved=False)
+        # Following the circle here would sag past the cards, so this pair joins
+        # its facing sides on a shallow arc that keeps the loop's curvature.
+        return _ring_chord_arc(edge, boxes, ring)
     radius = _number(ring.radius)
     path = f"M{_point(ring.point(start))}A{radius} {radius} 0 0 1 {_point(ring.point(end))}"
     return path, ring.point((start + end) / 2)
+
+
+def _ring_chord_arc(
+    edge: Edge, boxes: dict[str, Box], ring: Ring
+) -> tuple[str, tuple[float, float]]:
+    """Bow a short connector outward by the same proportion as the ring's own arcs."""
+    source, target = boxes[edge.source], boxes[edge.target]
+    start_anchor, end_anchor = _default_anchors(source, target)
+    start = _anchor(source, edge.source_anchor or start_anchor)
+    end = _anchor(target, edge.target_anchor or end_anchor)
+    half_chord = math.hypot(end[0] - start[0], end[1] - start[1]) / 2
+    # A full ring slot rises this far off its own chord; reuse that ratio here.
+    slot = math.pi / ring.count
+    bow = half_chord * (1 - math.cos(slot)) / math.sin(slot)
+    if bow < 1:
+        return _line_path(start, end)
+    radius = _number((half_chord**2 + bow**2) / (2 * bow))
+    return (
+        f"M{_point(start)}A{radius} {radius} 0 0 1 {_point(end)}",
+        ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2),
+    )
 
 
 def _ring_meets_an_edge(point: tuple[float, float], box: Box) -> bool:

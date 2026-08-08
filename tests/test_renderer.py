@@ -388,8 +388,9 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     assert ring_angles(centers, center_x, center_y) == pytest.approx([72] * 5, abs=0.5)
     # Connectors follow the ring itself, except where it only grazes a corner.
     arcs = re.findall(r'<path class="edge" d="M[-\d. ]+A([\d.]+) ([\d.]+) 0 0 1', svg)
-    assert len(arcs) == 4
-    assert all(float(x) == pytest.approx(radii[0], abs=0.5) for arc in arcs for x in arc)
+    assert len(arcs) == 5
+    on_ring = [arc for arc in arcs if float(arc[0]) == pytest.approx(radii[0], abs=0.5)]
+    assert len(on_ring) == 4
     assert '<symbol id="icon-database"' in svg
     assert ">@</text>" in svg
     assert 'textLength="188"' in svg
@@ -404,14 +405,23 @@ def test_ring_layout_joins_bottom_cards_without_sagging_under_them(tmp_path):
 
     svg = output.read_text()
     # The circle dips below two cards that straddle the bottom, so their connector
-    # runs between their facing sides instead of arcing past the corners.
-    straight = re.findall(r'<path class="edge" d="M([-\d.]+) ([-\d.]+)L([-\d.]+) ([-\d.]+)"', svg)
-    assert len(straight) == 1
-    start_x, start_y, end_x, end_y = (float(value) for value in straight[0])
+    # joins their facing sides on a tighter arc than the ring's own.
+    edges = re.findall(
+        r'<path class="edge" d="M([-\d.]+) ([-\d.]+)A([\d.]+) [\d.]+ 0 0 1 ([-\d.]+) ([-\d.]+)"',
+        svg,
+    )
+    assert len(edges) == 5
     bottom = sorted(ring_card_centers(svg, 220, 90), key=lambda point: -point[1])[:2]
-    assert start_y == pytest.approx(bottom[0][1], abs=0.5)
-    assert end_y == pytest.approx(bottom[0][1], abs=0.5)
+    joins = [e for e in edges if float(e[1]) == pytest.approx(bottom[0][1], abs=0.5)]
+    assert len(joins) == 1
+    start_x, start_y, radius, end_x, end_y = (float(value) for value in joins[0])
+    ring_radius = max(float(edge[2]) for edge in edges)
+    assert radius < ring_radius
+    assert end_y == pytest.approx(start_y, abs=0.5)
     assert min(point[0] for point in bottom) < end_x < start_x < max(point[0] for point in bottom)
+    # Its deepest point stays inside the cards rather than sagging under them.
+    half_chord = (start_x - end_x) / 2
+    assert start_y + radius - math.sqrt(radius**2 - half_chord**2) < bottom[0][1] + 90 / 2
 
 
 def test_center_detail_sits_clear_of_the_annotation_circle(tmp_path):
