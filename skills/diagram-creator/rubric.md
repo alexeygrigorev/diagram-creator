@@ -35,6 +35,12 @@ Check: radius spread under 0.5 px, every angular step within 0.5 degrees.
 Fails when: the layout derives positions from canvas fractions, so a wide
 canvas flattens the circle.
 
+A staircase is a cascade, not a scatter. Every tread advances the same distance
+right and every riser the same distance down, and no two steps share a row.
+
+Check: the spread of consecutive `x` advances and of consecutive `y` advances,
+both under 0.5 px; every riser at least the card height.
+
 ### 2. Connectors are one arc repeated
 
 Every connector in a loop is the same arc of the same circle, only rotated -
@@ -46,6 +52,10 @@ Check: chord length and arc radius of every connector. Both spreads under 0.5 px
 Fails when: connectors are clipped per-card instead of sharing one angular
 standoff, which makes each arc a different length. Take the widest standoff any
 card needs and give it to all of them.
+
+The same applies to a staircase, where every connector should be one elbow
+translated: identical horizontal run, identical vertical run, identical corner
+radius.
 
 ### 3. Connectors attach cleanly
 

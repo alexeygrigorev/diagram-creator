@@ -11,8 +11,9 @@ class SpecError(ValueError):
 
 
 COLORS = {"purple", "blue", "amber", "green", "red", "gray"}
-LAYOUTS = {"horizontal", "manual", "grid", "ring"}
-ROUTES = {"forward", "below", "straight", "curve", "ring"}
+LAYOUTS = {"horizontal", "manual", "grid", "ring", "staircase"}
+ROUTES = {"forward", "below", "straight", "curve", "ring", "step"}
+STAIRCASE_DIRECTIONS = {"descending", "ascending"}
 ANCHORS = {"left", "right", "top", "bottom"}
 NODE_VARIANTS = {"card", "icon", "plain"}
 ICONS = {
@@ -60,6 +61,8 @@ class Layout:
     row_height: float | None = None
     direction: str = "clockwise"
     margin: float | None = None
+    step_x: float | None = None
+    step_y: float | None = None
 
 
 @dataclass(frozen=True)
@@ -215,6 +218,8 @@ def _parse_layout(data: Any) -> Layout:
     column_width = _optional_number(data, "column_width", "layout")
     row_height = _optional_number(data, "row_height", "layout")
     margin = _optional_number(data, "margin", "layout")
+    step_x = _optional_number(data, "step_x", "layout")
+    step_y = _optional_number(data, "step_y", "layout")
     if card_width is not None and card_width <= 0:
         raise SpecError("layout 'card_width' must be positive")
     if card_height is not None and card_height <= 0:
@@ -229,9 +234,21 @@ def _parse_layout(data: Any) -> Layout:
         raise SpecError("layout 'row_height' must be positive")
     if margin is not None and margin < 0:
         raise SpecError("layout 'margin' must be a non-negative number")
-    direction = data.get("direction", "clockwise")
-    if direction != "clockwise":
-        raise SpecError("ring direction currently must be 'clockwise'")
+    if step_x is not None and step_x <= 0:
+        raise SpecError("layout 'step_x' must be positive")
+    if step_y is not None and step_y <= 0:
+        raise SpecError("layout 'step_y' must be positive")
+    direction = data.get("direction")
+    if layout_type == "staircase":
+        direction = "descending" if direction is None else direction
+        if direction not in STAIRCASE_DIRECTIONS:
+            raise SpecError(
+                f"staircase direction must be one of: {', '.join(sorted(STAIRCASE_DIRECTIONS))}"
+            )
+    else:
+        direction = "clockwise" if direction is None else direction
+        if direction != "clockwise":
+            raise SpecError("ring direction currently must be 'clockwise'")
     return Layout(
         type=layout_type,
         card_width=card_width,
@@ -242,6 +259,8 @@ def _parse_layout(data: Any) -> Layout:
         row_height=row_height,
         direction=direction,
         margin=margin,
+        step_x=step_x,
+        step_y=step_y,
     )
 
 

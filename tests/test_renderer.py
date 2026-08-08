@@ -13,6 +13,10 @@ from diagram_creator.spec import DiagramSpec, SpecError, load_spec
 
 EXAMPLE_SPECS = tuple(sorted(Path("examples").glob("*.json")))
 NODE_TRANSFORM = re.compile(r'<g class="node[^"]*" transform="translate\(([-\d.]+) ([-\d.]+)\)"')
+STEP_EDGE = re.compile(
+    r'<path class="edge" d="M([-\d.]+) ([-\d.]+)H[-\d.]+'
+    r"Q([-\d.]+) [-\d.]+ [-\d.]+ [-\d.]+V([-\d.]+)\""
+)
 
 
 def ring_spec(width, height, *, count=5, margin=None):
@@ -55,6 +59,26 @@ def ring_angles(centers, center_x, center_y):
         (bearings[(index + 1) % len(bearings)] - bearing) % 360
         for index, bearing in enumerate(bearings)
     ]
+
+
+def staircase_spec(width=900, height=520, *, count=4, direction=None):
+    layout = {"type": "staircase", "card_width": 220, "card_height": 90}
+    if direction is not None:
+        layout["direction"] = direction
+    return DiagramSpec.from_dict(
+        {
+            "canvas": {"width": width, "height": height},
+            "layout": layout,
+            "nodes": [{"id": f"step-{index}", "title": f"Step {index}"} for index in range(count)],
+            "edges": [
+                {"from": f"step-{index}", "to": f"step-{index + 1}"} for index in range(count - 1)
+            ],
+        }
+    )
+
+
+def staircase_cards(svg):
+    return [(float(x), float(y)) for x, y in NODE_TRANSFORM.findall(svg)]
 
 
 def workflow_spec():
@@ -477,6 +501,89 @@ def test_ring_layout_margin_shrinks_the_circle(tmp_path):
         return math.hypot(centers[0][0] - center_x, centers[0][1] - center_y)
 
     assert radius(120) < radius(40)
+
+
+def test_staircase_layout_steps_down_one_card_at_a_time(tmp_path):
+    output = tmp_path / "stairs.svg"
+
+    render_diagram(staircase_spec(), output)
+
+    cards = staircase_cards(output.read_text())
+    assert len(cards) == 4
+    advances_x = [later[0] - earlier[0] for earlier, later in zip(cards, cards[1:])]
+    advances_y = [later[1] - earlier[1] for earlier, later in zip(cards, cards[1:])]
+    # Every tread and every riser is the same size, so the cascade reads as one shape.
+    assert max(advances_x) - min(advances_x) < 0.01
+    assert max(advances_y) - min(advances_y) < 0.01
+    # Cards overlap sideways but never share a row.
+    assert 0 < advances_x[0] < 220
+    assert advances_y[0] >= 90
+    # The whole staircase is centered on the canvas.
+    assert cards[0][0] == pytest.approx(900 - (cards[-1][0] + 220), abs=0.5)
+    assert cards[0][1] == pytest.approx(520 - (cards[-1][1] + 90), abs=0.5)
+
+
+def test_staircase_layout_can_climb_instead_of_descend(tmp_path):
+    output = tmp_path / "stairs.svg"
+
+    render_diagram(staircase_spec(direction="ascending"), output)
+
+    cards = staircase_cards(output.read_text())
+    assert [card[0] for card in cards] == sorted(card[0] for card in cards)
+    assert [card[1] for card in cards] == sorted((card[1] for card in cards), reverse=True)
+
+
+@pytest.mark.parametrize("direction", ["descending", "ascending"])
+def test_staircase_connectors_are_one_elbow_repeated(direction, tmp_path):
+    output = tmp_path / "stairs.svg"
+
+    render_diagram(staircase_spec(direction=direction), output)
+
+    svg = output.read_text()
+    cards = staircase_cards(svg)
+    elbows = STEP_EDGE.findall(svg)
+    assert len(elbows) == 3
+    for index, elbow in enumerate(elbows):
+        start_x, start_y, turn_x, end_y = (float(value) for value in elbow)
+        source, target = cards[index], cards[index + 1]
+        # Out of the source's right edge, turning halfway across the tread, into
+        # the top edge below or the bottom edge above.
+        assert (start_x, start_y) == pytest.approx((source[0] + 220, source[1] + 45), abs=0.01)
+        assert turn_x == pytest.approx((source[0] + target[0] + 440) / 2, abs=0.01)
+        assert end_y == pytest.approx(target[1] if direction == "descending" else target[1] + 90)
+        assert target[0] <= turn_x <= target[0] + 220
+    runs = [(float(e[2]) - float(e[0]), abs(float(e[3]) - float(e[1]))) for e in elbows]
+    assert max(runs) == pytest.approx(min(runs), abs=0.01)
+
+
+def test_staircase_rejects_a_canvas_that_cannot_hold_the_cascade(tmp_path):
+    spec = staircase_spec(700, 400, count=5)
+
+    with pytest.raises(SpecError, match="too small for this staircase"):
+        render_diagram(spec, tmp_path / "stairs.svg")
+
+
+def test_step_route_joins_two_cards_outside_a_staircase(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 800, "height": 400},
+            "layout": {"type": "grid", "card_width": 220, "card_height": 90},
+            "nodes": [
+                {"id": "one", "title": "One", "row": 0, "column": 0},
+                {"id": "two", "title": "Two", "row": 1, "column": 1},
+            ],
+            "edges": [{"from": "one", "to": "two", "route": "step"}],
+        }
+    )
+    output = tmp_path / "step.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    cards = staircase_cards(svg)
+    elbow = STEP_EDGE.search(svg)
+    assert elbow is not None
+    assert float(elbow.group(4)) == pytest.approx(cards[1][1], abs=0.01)
 
 
 @pytest.mark.parametrize("source", EXAMPLE_SPECS, ids=lambda path: path.stem)

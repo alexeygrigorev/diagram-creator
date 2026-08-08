@@ -10,8 +10,9 @@ publishing. Keep the JSON beside the generated asset or in the project’s
 diagram-source directory so later changes do not require hand-editing SVG.
 
 Use `horizontal` for one row, `grid` for deliberate rows and columns, `ring`
-for a circular loop of three or more stages, and `manual` for free-form
-branches and mixed positions. Grid nodes use `row` and `column`; grid columns and rows size to
+for a circular loop of three or more stages, `staircase` for a sequence that
+only moves forward, and `manual` for free-form branches and mixed positions.
+Grid nodes use `row` and `column`; grid columns and rows size to
 their largest node while `column_gap` and `row_gap` remain equal. Set
 `column_width` and `row_height` when every grid cell should use fixed
 dimensions. Manual layout keeps explicit `x` and `y` available when the grid
@@ -272,6 +273,50 @@ one generated path. Inspect the rendered loop for bilateral symmetry,
 consistent arrow curvature, clear card-edge attachment, and unobstructed center
 whitespace.
 
+## Staircase illustrations
+
+Use a staircase when each stage hands off to exactly one next stage and nothing
+loops back: an interview funnel, an escalation ladder, a maturity model. Declare
+the nodes in step order and leave the edges unrouted - `forward` becomes the
+staircase elbow. Use `descending` when later stages narrow or dig deeper, and
+`ascending` when they represent progress upward.
+
+```json
+{
+  "canvas": {"width": 1680, "height": 880, "background": "#ffffff"},
+  "layout": {"type": "staircase", "direction": "descending", "card_width": 320, "card_height": 96},
+  "nodes": [
+    {"id": "recruiter", "title": "Recruiter", "subtitle": "Background and fit", "icon": "number-1"},
+    {"id": "theory", "title": "Theory", "subtitle": "LLMs and RAG", "icon": "number-2"},
+    {"id": "coding", "title": "Coding", "subtitle": "Python and SQL", "icon": "number-3"}
+  ],
+  "edges": [
+    {"from": "recruiter", "to": "theory"},
+    {"from": "theory", "to": "coding"}
+  ]
+}
+```
+
+A staircase needs a wide canvas: its width grows by roughly one card per step
+and its height by a full card height per step, so a seven-step cascade of
+320×96 cards wants about `1680×880`. Rendering fails with a suggested size when
+the cascade does not fit, so start from that number. Increase the canvas before
+shrinking the cards.
+
+Let the renderer set the advances. It spreads the treads over the canvas width,
+stopping before consecutive cards pull apart, and keeps every riser one card
+height plus 18 px, which is what makes the cascade read as one shape. Set
+`step_x` and `step_y` only when a specific overlap is the point, and set them
+once for the whole diagram rather than per node.
+
+Keep every card the same width in a staircase. Unequal widths break both the
+tread rhythm and the elbow that is measured from the cards' trailing edges. Use
+`number-1`, `number-2`, and `number-3` or an eyebrow to mark order; the cascade
+already carries direction, so do not also number the titles.
+
+Use the `step` route on its own in a grid or manual layout when two offset cards
+should be joined by one right-angled elbow instead of a diagonal.
+
 ## Prevent layout drift
 
 Apply tokens in the SVG itself; a token table does not help if nodes still use
@@ -336,9 +381,10 @@ same command to refresh PNGs after editing their retained SVG sources.
 2. Create a JSON file with `canvas`, `layout`, `nodes`, and `edges`.
 3. Add `icon` to icon-bearing nodes; use `mention` for the `@` glyph. Use
    `"variant": "icon"` for an icon with an optional label and no card.
-4. Use `route: "below"` for feedback, `ring` for a circular loop, or `curve`
-   with two control points for a manual layout. Use `"bidirectional": true`
-   for one connector with arrowheads at both ends.
+4. Use `route: "below"` for feedback, `ring` for a circular loop, `step` for a
+   single right-angled elbow between offset cards, or `curve` with two control
+   points for a manual layout. Use `"bidirectional": true` for one connector
+   with arrowheads at both ends.
 5. Choose node colors from `purple`, `blue`, `amber`, `green`, `red`, or `gray`.
 6. Render SVG from a checkout while iterating:
 

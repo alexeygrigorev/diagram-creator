@@ -11,7 +11,7 @@ from html import escape
 from importlib.resources import files
 from pathlib import Path
 
-from diagram_creator.spec import DiagramSpec, Edge, Node, SpecError
+from diagram_creator.spec import CenterAnnotation, DiagramSpec, Edge, Node, SpecError
 
 
 @dataclass(frozen=True)
@@ -58,11 +58,21 @@ RING_MARGIN = 40
 RING_EDGE_GAP = 12
 RING_ARC_SAMPLES = 240
 RING_CARD_GAP = 24
+STAIRCASE_MARGIN = 40
+STAIRCASE_STEP_GAP = 18
+# The tightest horizontal advance, as a share of the card width. Cards may
+# overlap sideways because consecutive steps never share a row, but past this
+# point the treads are too short to read as a staircase.
+STAIRCASE_MIN_ADVANCE = 0.6
+STEP_CORNER = 12
 ICON_GUTTER = 12
 TITLE_SIZE, TITLE_WEIGHT = 16, 750
 SUBTITLE_SIZE, SUBTITLE_WEIGHT = 13, 500
 DETAIL_SIZE, DETAIL_WEIGHT = 16, 500
 ANNOTATION_PADDING = 14
+CENTER_TITLE_RATIO, CENTER_DETAIL_RATIO = 0.22, 0.72
+CENTER_TITLE_MIN, CENTER_TITLE_MAX = 16, 44
+CENTER_TRACKING = 0.08
 EYEBROW_INK, EYEBROW_GAP = 9, 9
 SUBTITLE_GAP, SUBTITLE_ASCENT, SUBTITLE_DESCENT = 8, 10, 4
 SUBTITLE_LINE, SUBTITLE_LINES = 18, 3
@@ -365,7 +375,52 @@ def _layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
         return _ring_layout(spec, width, height)
     if spec.layout.type == "grid":
         return _grid_layout(spec, width, height)
+    if spec.layout.type == "staircase":
+        return _staircase_layout(spec, width, height)
     return _horizontal_layout(spec, width, height)
+
+
+def _staircase_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
+    """Cascade equal cards one tread right and one riser down (or up) per step."""
+    count = len(spec.nodes)
+    card_width = spec.layout.card_width or 260
+    card_height = spec.layout.card_height or 100
+    margin = STAIRCASE_MARGIN if spec.layout.margin is None else spec.layout.margin
+    available_width = width - 2 * margin
+    available_height = height - 2 * margin
+
+    step_y = spec.layout.step_y or card_height + STAIRCASE_STEP_GAP
+    if step_y < card_height:
+        raise SpecError("staircase 'step_y' must be at least the card height so steps stay apart")
+    if spec.layout.step_x is not None:
+        step_x = spec.layout.step_x
+    else:
+        # Spread the treads over the canvas, but never past the point where
+        # consecutive cards pull apart, and never tighter than the overlap limit.
+        filled = (available_width - card_width) / (count - 1)
+        step_x = min(max(filled, card_width * STAIRCASE_MIN_ADVANCE), card_width)
+
+    total_width = card_width + (count - 1) * step_x
+    total_height = card_height + (count - 1) * step_y
+    if total_width > available_width or total_height > available_height:
+        raise SpecError(
+            "the canvas is too small for this staircase; use at least "
+            f"{math.ceil(total_width + 2 * margin)}x{math.ceil(total_height + 2 * margin)} "
+            "or smaller cards"
+        )
+
+    left = margin + (available_width - total_width) / 2
+    top = margin + (available_height - total_height) / 2
+    descending = spec.layout.direction == "descending"
+    return {
+        node.id: Box(
+            left + index * step_x,
+            top + (index if descending else count - 1 - index) * step_y,
+            node.width or card_width,
+            node.height or card_height,
+        )
+        for index, node in enumerate(spec.nodes)
+    }
 
 
 def _grid_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
@@ -770,11 +825,15 @@ def _draw_edge(
 ) -> str:
     if spec.layout.type == "ring":
         route = "ring" if edge.route in {"forward", "ring"} else edge.route
+    elif spec.layout.type == "staircase":
+        route = "step" if edge.route == "forward" else edge.route
     else:
         # A ring route has no circle to follow outside a ring layout.
         route = "curve" if edge.route == "ring" else edge.route
     if route == "ring":
         path, label_point = _ring_path(spec, edge, boxes, width, height)
+    elif route == "step":
+        path, label_point = _step_path(edge, boxes)
     elif route == "below":
         path, label_point = _below_path(edge, boxes, width, height)
     else:
@@ -920,6 +979,44 @@ def _direct_path(
     return _line_path(start, end)
 
 
+def _step_path(edge: Edge, boxes: dict[str, Box]) -> tuple[str, tuple[float, float]]:
+    """Leave a card through its side, turn once, and drop into the next card's edge.
+
+    The turn sits halfway across the tread - midway between the two cards'
+    trailing edges - so every connector in a regular staircase is the same
+    elbow, only translated.
+    """
+    source, target = boxes[edge.source], boxes[edge.target]
+    rightward = (
+        edge.source_anchor == "right"
+        if edge.source_anchor in {"left", "right"}
+        else target.center_x >= source.center_x
+    )
+    downward = (
+        edge.target_anchor == "top"
+        if edge.target_anchor in {"top", "bottom"}
+        else target.center_y >= source.center_y
+    )
+    start = (source.right if rightward else source.x, source.center_y)
+    end_y = target.y if downward else target.bottom
+    turn_x = (source.right + target.right) / 2 if rightward else (source.x + target.x) / 2
+    run_x = turn_x - start[0] if rightward else start[0] - turn_x
+    run_y = end_y - start[1] if downward else start[1] - end_y
+    if run_x <= 0 or run_y <= 0 or not target.x <= turn_x <= target.right:
+        # The cards do not step apart in both directions, so one turn would
+        # double back over a card. A straight join is honest about that.
+        return _direct_path(edge, boxes, curved=False)
+    radius = min(STEP_CORNER, run_x, run_y)
+    corner_x = turn_x - radius if rightward else turn_x + radius
+    corner_y = start[1] + radius if downward else start[1] - radius
+    path = (
+        f"M{_point(start)}H{_number(corner_x)}"
+        f"Q{_number(turn_x)} {_number(start[1])} {_number(turn_x)} {_number(corner_y)}"
+        f"V{_number(end_y)}"
+    )
+    return path, (turn_x, (corner_y + end_y) / 2)
+
+
 def _below_path(
     edge: Edge,
     boxes: dict[str, Box],
@@ -981,32 +1078,49 @@ def _draw_center(spec: DiagramSpec, width: int, height: int) -> str:
         x, y = ring.center_x, ring.center_y
     else:
         x, y = width / 2, height / 2
-    title_y = y - 5 if center.subtitle else y + 6
+    # A fixed type size makes a big annotation look empty and a small one
+    # overflow, so the type is sized from the circle and then shrunk until the
+    # widest line genuinely fits the chord it sits on.
+    title_size = _fitted_size(center, center.radius * CENTER_TITLE_RATIO, TITLE_WEIGHT)
+    detail_size = round(title_size * CENTER_DETAIL_RATIO)
+    line = round(title_size * 1.35)
+    title_y = y - line / 2 + title_size / 3 if center.subtitle else y + title_size / 3
     lines = [
         f'  <circle class="center-annotation" cx="{_number(x)}" cy="{_number(y)}" '
         f'r="{_number(center.radius)}"/>',
-        f'  <text class="center-title" x="{_number(x)}" y="{_number(title_y)}">'
-        f"{escape(center.title)}</text>",
+        f'  <text class="center-title" x="{_number(x)}" y="{_number(title_y)}" '
+        f'font-size="{title_size}">{escape(center.title)}</text>',
     ]
     if center.subtitle:
         lines.append(
-            f'  <text class="center-title" x="{_number(x)}" y="{_number(y + 18)}">'
+            f'  <text class="center-title" x="{_number(x)}" '
+            f'y="{_number(title_y + line)}" font-size="{title_size}">'
             f"{escape(center.subtitle)}</text>"
         )
     if center.detail:
         # The detail carries the meaning, so keep it inside the annotation when the
         # circle is wide enough to hold it there, and drop it below as a caption
         # only when it would otherwise cut through the edge.
-        inside_y = y + (43 if center.subtitle else 25)
+        inside_y = (title_y + line if center.subtitle else title_y) + detail_size * 1.7
         half_chord = _circle_half_width(center.radius, inside_y - y)
-        detail_width = _text_width(center.detail, DETAIL_SIZE, DETAIL_WEIGHT)
-        fits_inside = detail_width + 2 * ANNOTATION_PADDING <= 2 * half_chord
-        detail_y = inside_y if fits_inside else y + center.radius + 24
+        fits = _text_width(center.detail, detail_size, DETAIL_WEIGHT) + 2 * ANNOTATION_PADDING
+        detail_y = inside_y if fits <= 2 * half_chord else y + center.radius + detail_size + 8
         lines.append(
-            f'  <text class="center-detail" x="{_number(x)}" '
-            f'y="{_number(detail_y)}">{escape(center.detail)}</text>'
+            f'  <text class="center-detail" x="{_number(x)}" y="{_number(detail_y)}" '
+            f'font-size="{detail_size}">{escape(center.detail)}</text>'
         )
     return "\n".join(lines)
+
+
+def _fitted_size(center: CenterAnnotation, wanted: float, weight: int) -> int:
+    """Largest title size at or below `wanted` whose longest line clears the circle."""
+    longest = max([center.title, center.subtitle], key=len)
+    for size in range(round(min(wanted, CENTER_TITLE_MAX)), CENTER_TITLE_MIN - 1, -1):
+        letter_spacing = size * CENTER_TRACKING * len(longest)
+        room = 2 * _circle_half_width(center.radius, size) - 2 * ANNOTATION_PADDING
+        if _text_width(longest, size, weight) + letter_spacing <= room:
+            return size
+    return CENTER_TITLE_MIN
 
 
 def _circle_half_width(radius: float, offset: float) -> float:
@@ -1052,8 +1166,8 @@ def _style() -> str:
   .edge-label text { font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }
   .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }
   .center-annotation { fill: #f1f5f9; stroke: none; }
-  .center-title { font-size: 20px; font-weight: 800; letter-spacing: 1.6px; fill: #334155; text-anchor: middle; }
-  .center-detail { font-size: 16px; font-weight: 600; fill: #64748b; text-anchor: middle; }
+  .center-title { font-weight: 800; letter-spacing: 0.08em; fill: #334155; text-anchor: middle; }
+  .center-detail { font-weight: 600; fill: #64748b; text-anchor: middle; }
 </style>"""
 
 

@@ -20,6 +20,14 @@ the resulting bounding box is centered in the canvas. A second bisection finds
 the smallest radius that keeps the cards apart; when the canvas cannot reach it,
 rendering fails with the canvas size that would.
 
+The staircase layout advances one equal tread right and one equal riser down
+per node, then centers the whole cascade. The riser is the card height plus a
+fixed gap, so consecutive steps never share a row. The tread is whatever spreads
+the cascade over the canvas width, clamped so that cards neither pull apart nor
+overlap past 40 percent of their width; when the clamp no longer fits, rendering
+fails with the canvas size that would. An ascending staircase reverses the slot
+order, not the reading order, so the first node still sits on the left.
+
 Each resolved card is a box with `x`, `y`, `width`, and `height`. Connectors use
 named anchors on those boxes. Cubic curves add two control points. Ring routes
 are arcs of the layout circle itself: the router walks the arc away from each
@@ -29,6 +37,14 @@ grazes a corner - two cards straddling the bottom of a five-node ring, for
 instance - following it would sag underneath them, so that pair joins its facing
 sides on a tighter arc that rises off its chord by the same proportion a full
 ring slot does. Every connector still reads as part of one loop.
+
+A step route is one elbow: out of a card's side, along to the point halfway
+between the two cards' trailing edges, then a rounded turn into the next card's
+top or bottom edge. Placing the turn by the two boxes rather than by the layout
+keeps every connector in a regular staircase identical, and lets the same route
+join two offset cards in a grid or manual layout. When the cards do not step
+apart in both directions, one turn would double back over a card, so the router
+falls back to a straight join.
 
 Titles and subtitles are squeezed with `textLength` only when they would
 overflow their column. Deciding that needs a text width before any browser has
@@ -57,6 +73,7 @@ color.
 
 ```bash
 uv run diagram-creator examples/agent-workflow.json examples/agent-workflow.svg
+uv run diagram-creator examples/interview-stages.json examples/interview-stages.svg
 uv run diagram-creator examples/faq-curation-loop.json examples/faq-curation-loop.svg
 uv run diagram-creator examples/faq-curation-loop.json examples/faq-curation-loop.png
 ```

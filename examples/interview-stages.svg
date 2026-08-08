@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="880" viewBox="0 0 1680 880" role="img" aria-labelledby="title desc">
+  <title id="title">Interview stages</title>
+  <desc id="desc">Seven interview stages cascade from the recruiter screen down to the take-home project.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#7c3aed"/></marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#2563eb"/></marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#c2410c"/></marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#15803d"/></marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#dc2626"/></marker>
+    <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#64748b"/></marker>
+    <symbol id="icon-document" viewBox="0 0 24 24">
+        <path d="M6 2h8l4 4v16H6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 2v5h4M9 12h6M9 16h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </symbol>
+    <symbol id="icon-issue" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M12 7v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/>
+      </symbol>
+    <symbol id="icon-message" viewBox="0 0 24 24">
+        <path d="M4 4h16v12H9l-5 4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M8 9h8M8 13h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </symbol>
+    <symbol id="icon-number-1" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9.5 12.4 8v8M10.2 16h4.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+    <symbol id="icon-number-2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.4 9.6a2.6 2.6 0 1 1 5.2.4c0 2-5.2 3.6-5.2 6h5.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+    <symbol id="icon-number-3" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9a2.5 2.5 0 1 1 2.7 3h-.7.7a2.6 2.6 0 1 1-2.8 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </symbol>
+    <style>
+      text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172033; }
+      .node rect { stroke-width: 2; }
+      .node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
+      .node-title.icon-copy { text-anchor: start; }
+      .node-subtitle { font-size: 13px; font-weight: 500; fill: #7a8699; text-anchor: middle; }
+      .eyebrow { font-size: 12px; font-weight: 750; letter-spacing: 1px; fill: #64748b; text-anchor: middle; }
+      .mention-icon { font-size: 27px; font-weight: 750; text-anchor: middle; }
+      .standalone-mention { font-size: 52px; font-weight: 750; text-anchor: middle; }
+      .icon-node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
+      .edge { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+      .edge-label rect { stroke-width: 2; }
+      .edge-label text { font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }
+      .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }
+      .center-annotation { fill: #f1f5f9; stroke: none; }
+      .center-title { font-weight: 800; letter-spacing: 0.08em; fill: #334155; text-anchor: middle; }
+      .center-detail { font-weight: 600; fill: #64748b; text-anchor: middle; }
+    </style>
+  </defs>
+  <rect width="1680" height="880" fill="#ffffff"/>
+
+  <path class="edge" d="M360 98H454.67Q466.67 98 466.67 110V164" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M573.33 212H668Q680 212 680 224V278" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M786.67 326H881.33Q893.33 326 893.33 338V392" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M1000 440H1094.67Q1106.67 440 1106.67 452V506" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M1213.33 554H1308Q1320 554 1320 566V620" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M1426.67 668H1521.33Q1533.33 668 1533.33 680V734" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+
+  <g class="node node-blue" transform="translate(40 50)" filter="url(#shadow)">
+    <rect width="320" height="96" rx="18" fill="#eff6ff" stroke="#2563eb"/>
+    <use href="#icon-number-1" x="98.25" y="23" width="28" height="28" color="#2563eb"/>
+    <text class="node-title icon-copy" x="138.25" y="43">Recruiter</text>
+    <text class="node-subtitle" x="160" y="69">Background and fit</text>
+  </g>
+  <g class="node node-blue" transform="translate(253.33 164)" filter="url(#shadow)">
+    <rect width="320" height="96" rx="18" fill="#eff6ff" stroke="#2563eb"/>
+    <use href="#icon-number-2" x="108.55" y="23" width="28" height="28" color="#2563eb"/>
+    <text class="node-title icon-copy" x="148.55" y="43">Theory</text>
+    <text class="node-subtitle" x="160" y="69">LLMs and RAG</text>
+  </g>
+  <g class="node node-purple" transform="translate(466.67 278)" filter="url(#shadow)">
+    <rect width="320" height="96" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
+    <use href="#icon-number-3" x="108.75" y="23" width="28" height="28" color="#7c3aed"/>
+    <text class="node-title icon-copy" x="148.75" y="43">Coding</text>
+    <text class="node-subtitle" x="160" y="69">Python and SQL</text>
+  </g>
+  <g class="node node-purple" transform="translate(680 392)" filter="url(#shadow)">
+    <rect width="320" height="96" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
+    <use href="#icon-document" x="61.1" y="23" width="28" height="28" color="#7c3aed"/>
+    <text class="node-title icon-copy" x="101.1" y="43">Project deep dive</text>
+    <text class="node-subtitle" x="160" y="69">Past projects and decisions</text>
+  </g>
+  <g class="node node-amber" transform="translate(893.33 506)" filter="url(#shadow)">
+    <rect width="320" height="96" rx="18" fill="#fff7ed" stroke="#c2410c"/>
+    <use href="#icon-settings" x="74.22" y="23" width="28" height="28" color="#c2410c"/>
+    <text class="node-title icon-copy" x="114.22" y="43">System design</text>
+    <text class="node-subtitle" x="160" y="69">Cost and latency</text>
+  </g>
+  <g class="node node-amber" transform="translate(1106.67 620)" filter="url(#shadow)">
+    <rect width="320" height="96" rx="18" fill="#fff7ed" stroke="#c2410c"/>
+    <use href="#icon-message" x="91.9" y="23" width="28" height="28" color="#c2410c"/>
+    <text class="node-title icon-copy" x="131.9" y="43">Behavioral</text>
+    <text class="node-subtitle" x="160" y="69">Collaboration and conflict</text>
+  </g>
+  <g class="node node-green" transform="translate(1320 734)" filter="url(#shadow)">
+    <rect width="320" height="96" rx="18" fill="#ecfdf5" stroke="#15803d"/>
+    <use href="#icon-issue" x="90" y="23" width="28" height="28" color="#15803d"/>
+    <text class="node-title icon-copy" x="130" y="43">Take-home</text>
+    <text class="node-subtitle" x="160" y="69">Build it in your own time</text>
+  </g>
+</svg>

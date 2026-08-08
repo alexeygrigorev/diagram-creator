@@ -48,6 +48,20 @@ icons, anchors, and curved connectors.
 
 [JSON source](examples/manual-pipeline.json) · [SVG output](examples/manual-pipeline.svg)
 
+### Staircase
+
+Staircase layout cascades equal cards one step right and one step down, and
+joins each pair with a single elbow. Set `"direction": "ascending"` to climb
+from the bottom left to the top right instead.
+
+![Seven interview stages descending from left to right](examples/interview-stages.png)
+
+[JSON source](examples/interview-stages.json) · [SVG output](examples/interview-stages.svg)
+
+![Five analytics maturity stages climbing from left to right](examples/analytics-maturity.png)
+
+[JSON source](examples/analytics-maturity.json) · [SVG output](examples/analytics-maturity.svg)
+
 ### Circular improvement loop
 
 Ring layout spaces equal cards evenly on a circle and draws every connector as
@@ -107,6 +121,26 @@ starting at the top, and the renderer spaces them evenly on a real circle:
 The complete source for the diagram above is
 [`examples/faq-curation-loop.json`](examples/faq-curation-loop.json).
 
+Use a staircase for stages that only move forward. Nodes are declared in step
+order and the renderer cascades them, so edges need no route of their own:
+
+```json
+{
+  "title": "Interview stages",
+  "canvas": {"width": 1680, "height": 880, "background": "#ffffff"},
+  "layout": {"type": "staircase", "direction": "descending", "card_width": 320, "card_height": 96},
+  "nodes": [
+    {"id": "recruiter", "title": "Recruiter", "subtitle": "Background and fit", "icon": "number-1"},
+    {"id": "theory", "title": "Theory", "subtitle": "LLMs and RAG", "icon": "number-2"},
+    {"id": "coding", "title": "Coding", "subtitle": "Python and SQL", "icon": "number-3"}
+  ],
+  "edges": [
+    {"from": "recruiter", "to": "theory"},
+    {"from": "theory", "to": "coding"}
+  ]
+}
+```
+
 ### Layouts
 
 - `horizontal` places every node in one evenly spaced row.
@@ -116,6 +150,13 @@ The complete source for the diagram above is
   margins. Set `margin` to change the gap kept around the cards, which defaults
   to 40. Rendering fails with a suggested canvas size when the cards would
   overlap.
+- `staircase` cascades equal cards one step right and one step down, in JSON
+  order. `direction` is `descending` (top left to bottom right) or `ascending`
+  (bottom left to top right). The renderer spreads the treads over the canvas
+  width, stopping before consecutive cards pull apart, and keeps a riser of the
+  card height plus 18 px. Set `step_x` and `step_y` for exact advances, and
+  `margin` to change the 40 px gap kept around the cards. Rendering fails with a
+  suggested canvas size when the cascade does not fit.
 - `grid` places nodes by `row` and `column`, sizes each column and row to its
   largest node, and preserves equal `column_gap` and `row_gap` gutters. Set
   `column_width` and `row_height` when every grid cell should use fixed dimensions.
@@ -181,7 +222,10 @@ a left edge and the subtitle shares that margin; a card without an icon centers
 both lines instead. Either way the title and subtitle sit on one axis, the block
 is centered on the card, and long lines are fitted to the available column.
 
-Edge routes are `forward`, `below`, `straight`, `curve`, and `ring`. Explicit
+Edge routes are `forward`, `below`, `straight`, `curve`, `ring`, and `step`. A
+`step` leaves one card through its side, turns once halfway across the gap, and
+enters the next card's top or bottom edge; it is what `forward` means inside a
+staircase, and it also works in a grid or manual layout. Explicit
 edges accept `from_anchor` and `to_anchor` values of `left`, `right`, `top`, or
 `bottom`. A curve takes exactly two absolute `[x, y]` control points.
 

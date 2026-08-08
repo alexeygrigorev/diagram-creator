@@ -106,6 +106,52 @@ def test_parses_explicit_grid_column_width_and_row_height():
     assert spec.layout.row_height == 112
 
 
+def test_staircase_layout_descends_by_default_and_accepts_explicit_steps():
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "staircase", "step_x": 180, "step_y": 120},
+            "nodes": [
+                {"id": "one", "title": "One"},
+                {"id": "two", "title": "Two"},
+            ],
+            "edges": [{"from": "one", "to": "two", "route": "step"}],
+        }
+    )
+
+    assert spec.layout.direction == "descending"
+    assert (spec.layout.step_x, spec.layout.step_y) == (180, 120)
+    assert spec.edges[0].route == "step"
+
+
+def test_staircase_layout_accepts_the_ascending_direction():
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "staircase", "direction": "ascending"},
+            "nodes": [
+                {"id": "one", "title": "One"},
+                {"id": "two", "title": "Two"},
+            ],
+            "edges": [],
+        }
+    )
+
+    assert spec.layout.direction == "ascending"
+
+
+def test_rejects_an_unknown_staircase_direction():
+    data = {
+        "layout": {"type": "staircase", "direction": "sideways"},
+        "nodes": [
+            {"id": "one", "title": "One"},
+            {"id": "two", "title": "Two"},
+        ],
+        "edges": [],
+    }
+
+    with pytest.raises(SpecError, match="staircase direction"):
+        DiagramSpec.from_dict(data)
+
+
 def test_curve_route_requires_two_control_points():
     data = {
         "nodes": [

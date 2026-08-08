@@ -1,0 +1,58 @@
+{
+  "title": "Analytics maturity",
+  "description": "Five analytics stages climb from raw collection up to automated decisions.",
+  "canvas": {
+    "width": 1200,
+    "height": 640,
+    "background": "#ffffff"
+  },
+  "layout": {
+    "type": "staircase",
+    "direction": "ascending",
+    "card_width": 280,
+    "card_height": 96
+  },
+  "nodes": [
+    {
+      "id": "collect",
+      "title": "Collect",
+      "subtitle": "Events land in the warehouse",
+      "color": "gray",
+      "icon": "database"
+    },
+    {
+      "id": "report",
+      "title": "Report",
+      "subtitle": "What happened last week",
+      "color": "blue",
+      "icon": "document"
+    },
+    {
+      "id": "explain",
+      "title": "Explain",
+      "subtitle": "Why the numbers moved",
+      "color": "purple",
+      "icon": "search"
+    },
+    {
+      "id": "predict",
+      "title": "Predict",
+      "subtitle": "What happens next",
+      "color": "amber",
+      "icon": "sparkles"
+    },
+    {
+      "id": "automate",
+      "title": "Automate",
+      "subtitle": "The system decides and acts",
+      "color": "green",
+      "icon": "settings"
+    }
+  ],
+  "edges": [
+    {"from": "collect", "to": "report"},
+    {"from": "report", "to": "explain"},
+    {"from": "explain", "to": "predict"},
+    {"from": "predict", "to": "automate"}
+  ]
+}

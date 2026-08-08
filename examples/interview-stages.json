@@ -1,0 +1,74 @@
+{
+  "title": "Interview stages",
+  "description": "Seven interview stages cascade from the recruiter screen down to the take-home project.",
+  "canvas": {
+    "width": 1680,
+    "height": 880,
+    "background": "#ffffff"
+  },
+  "layout": {
+    "type": "staircase",
+    "direction": "descending",
+    "card_width": 320,
+    "card_height": 96
+  },
+  "nodes": [
+    {
+      "id": "recruiter",
+      "title": "Recruiter",
+      "subtitle": "Background and fit",
+      "color": "blue",
+      "icon": "number-1"
+    },
+    {
+      "id": "theory",
+      "title": "Theory",
+      "subtitle": "LLMs and RAG",
+      "color": "blue",
+      "icon": "number-2"
+    },
+    {
+      "id": "coding",
+      "title": "Coding",
+      "subtitle": "Python and SQL",
+      "color": "purple",
+      "icon": "number-3"
+    },
+    {
+      "id": "deep-dive",
+      "title": "Project deep dive",
+      "subtitle": "Past projects and decisions",
+      "color": "purple",
+      "icon": "document"
+    },
+    {
+      "id": "system-design",
+      "title": "System design",
+      "subtitle": "Cost and latency",
+      "color": "amber",
+      "icon": "settings"
+    },
+    {
+      "id": "behavioral",
+      "title": "Behavioral",
+      "subtitle": "Collaboration and conflict",
+      "color": "amber",
+      "icon": "message"
+    },
+    {
+      "id": "take-home",
+      "title": "Take-home",
+      "subtitle": "Build it in your own time",
+      "color": "green",
+      "icon": "issue"
+    }
+  ],
+  "edges": [
+    {"from": "recruiter", "to": "theory"},
+    {"from": "theory", "to": "coding"},
+    {"from": "coding", "to": "deep-dive"},
+    {"from": "deep-dive", "to": "system-design"},
+    {"from": "system-design", "to": "behavioral"},
+    {"from": "behavioral", "to": "take-home"}
+  ]
+}
