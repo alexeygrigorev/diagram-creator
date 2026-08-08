@@ -433,8 +433,9 @@ Inspect the image after rendering. Check every label, arrow direction, feedback
 loop, and crop. Keep an existing asset unchanged unless the user explicitly
 asks to replace it; otherwise write a new filename.
 
-Then score it against [`rubric.md`](rubric.md) before shipping. Ten criteria,
-one point each, every one measurable against the SVG or the rendered PNG.
+Then score it against [`rubric.md`](rubric.md) before shipping. Thirty criteria
+in six sections - geometry, cards, meaning, accessibility, restraint, and the
+set - most of them measurable against the SVG or the rendered PNG.
 Measure rather than eyeball - parse the SVG for card positions and arc radii,
 and scan the PNG for ink extents to see what the eye actually gets. Report the
 score with the failing criteria named. A diagram that renders is not a diagram

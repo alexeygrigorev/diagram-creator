@@ -664,6 +664,39 @@ def test_step_route_joins_two_cards_outside_a_staircase(tmp_path):
     assert float(elbow.group(4)) == pytest.approx(cards[1][1], abs=0.01)
 
 
+def relative_luminance(color):
+    channels = [int(color.lstrip("#")[index : index + 2], 16) / 255 for index in (0, 2, 4)]
+    linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def contrast(first, second):
+    lighter, darker = sorted((relative_luminance(first), relative_luminance(second)), reverse=True)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def test_card_text_meets_wcag_aa_on_every_card_colour():
+    # WCAG 1.4.3: body-sized text needs 4.5:1. The subtitle token used to be
+    # #7a8699, which measured 3.36-3.52:1 against these fills - failing on every
+    # diagram ever rendered, and invisible without computing it.
+    from diagram_creator.renderer import PALETTES, _style
+
+    style = _style()
+    for role in ("node-subtitle", "eyebrow"):
+        colour = re.search(rf"\.{role} \{{[^}}]*fill: (#[0-9a-f]{{6}})", style).group(1)
+        for name, palette in PALETTES.items():
+            assert contrast(colour, palette.fill) >= 4.5, f"{role} on {name}"
+
+
+def test_card_borders_and_connectors_meet_non_text_contrast():
+    # WCAG 1.4.11: graphics that carry meaning need 3:1.
+    from diagram_creator.renderer import PALETTES
+
+    for name, palette in PALETTES.items():
+        assert contrast(palette.stroke, palette.fill) >= 3.0, name
+        assert contrast(palette.stroke, "#ffffff") >= 3.0, name
+
+
 @pytest.mark.parametrize("source", EXAMPLE_SPECS, ids=lambda path: path.stem)
 def test_example_never_stretches_or_squeezes_type(source, tmp_path):
     output = tmp_path / source.with_suffix(".svg").name
