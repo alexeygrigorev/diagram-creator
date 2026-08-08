@@ -46,12 +46,20 @@ join two offset cards in a grid or manual layout. When the cards do not step
 apart in both directions, one turn would double back over a card, so the router
 falls back to a straight join.
 
-Titles and subtitles are squeezed with `textLength` only when they would
-overflow their column. Deciding that needs a text width before any browser has
-laid the text out, so the renderer carries a table of advance widths per 1 px of
-font size, measured out of Chromium by `scripts/measure_text.py`. Widths scale
-linearly with font size, so one table per weight covers every size the cards
-use.
+Type is never distorted to fit. Each diagram resolves one title size and one
+subtitle size - the largest at or below the requested size that leaves every
+card's copy at its natural width - so titles stay consistent across cards
+instead of one being squeezed while its neighbour is not. Deciding that needs a
+text width before any browser has laid the text out, so the renderer carries a
+table of advance widths per 1 px of font size, measured out of Chromium by
+`scripts/measure_text.py`. Widths scale linearly with font size, so one table
+per weight covers every size the cards use. A weight with no table of its own
+measures against the next heavier one, so an estimate is never short.
+
+An icon-and-title group is centered on ink, not on boxes. Icon artwork does not
+fill its slot evenly - ink runs from 58 percent of the box to 100 percent across
+this library - so `ICON_INK`, measured by `scripts/measure_icons.py`, records
+each glyph's bounds and the group is centered on what is actually visible.
 
 ## Drawing order
 

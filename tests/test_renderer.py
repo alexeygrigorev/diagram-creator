@@ -416,7 +416,7 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     assert all(float(arc[0]) == pytest.approx(radii[0], abs=0.5) for arc in arcs)
     assert '<symbol id="icon-database"' in svg
     assert ">@</text>" in svg
-    assert 'font-size="20"' in svg  # node titles carry an explicit, scalable size
+    assert 'class="node-title icon-copy"' in svg  # titles carry an explicit, scalable size
     assert "Each failure improves the data" in svg
 
 
@@ -617,6 +617,57 @@ def test_step_route_joins_two_cards_outside_a_staircase(tmp_path):
     elbow = STEP_EDGE.search(svg)
     assert elbow is not None
     assert float(elbow.group(4)) == pytest.approx(cards[1][1], abs=0.01)
+
+
+@pytest.mark.parametrize("source", EXAMPLE_SPECS, ids=lambda path: path.stem)
+def test_example_never_stretches_or_squeezes_type(source, tmp_path):
+    output = tmp_path / source.with_suffix(".svg").name
+
+    render_diagram(load_spec(source), output)
+
+    # Every glyph renders at its natural width. Fitting copy is done by choosing
+    # a size and wrapping, never by distorting letterforms.
+    svg = output.read_text()
+    assert "textLength" not in svg
+    assert "lengthAdjust" not in svg
+    assert "font-stretch" not in svg
+
+
+def test_titles_share_one_size_rather_than_being_squeezed(tmp_path):
+    # "Interview" is far wider than "Apply", so a per-card fit would squeeze it
+    # while leaving its neighbour untouched - visibly different letterforms.
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 881, "height": 735},
+            "layout": {"type": "ring", "card_width": 230, "card_height": 112},
+            "nodes": [
+                {"id": "a", "title": "Interview", "icon": "message"},
+                {"id": "b", "title": "Apply", "icon": "document"},
+                {"id": "c", "title": "Build", "icon": "github"},
+                {"id": "d", "title": "Network", "icon": "user"},
+                {"id": "e", "title": "Reflect", "icon": "search"},
+            ],
+            "edges": [
+                {"from": x, "to": y, "route": "ring"}
+                for x, y in (("a", "b"), ("b", "c"), ("c", "d"), ("d", "e"), ("e", "a"))
+            ],
+        }
+    )
+    output = tmp_path / "loop.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert "textLength" not in svg
+    sizes = set(re.findall(r'class="node-title[^"]*"[^>]*font-size="(\d+)"', svg))
+    assert len(sizes) == 1
+
+    # And the size chosen is the largest that leaves every title undistorted.
+    from diagram_creator.renderer import TITLE_WEIGHT, _text_width
+
+    size = int(sizes.pop())
+    for title in ("Interview", "Apply", "Build", "Network", "Reflect"):
+        assert _text_width(title, size, TITLE_WEIGHT) <= 230 - 32
 
 
 @pytest.mark.parametrize("source", EXAMPLE_SPECS, ids=lambda path: path.stem)

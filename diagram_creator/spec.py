@@ -16,6 +16,7 @@ ROUTES = {"forward", "below", "straight", "curve", "ring", "step"}
 STAIRCASE_DIRECTIONS = {"descending", "ascending"}
 ANCHORS = {"left", "right", "top", "bottom"}
 NODE_VARIANTS = {"card", "icon", "plain"}
+ICON_POSITIONS = {"leading", "above"}
 ICONS = {
     "github",
     "search",
@@ -62,6 +63,7 @@ class Layout:
     direction: str = "clockwise"
     margin: float | None = None
     font_scale: float = 1.0
+    icon_position: str = "leading"
     step_x: float | None = None
     step_y: float | None = None
 
@@ -220,6 +222,11 @@ def _parse_layout(data: Any) -> Layout:
     row_height = _optional_number(data, "row_height", "layout")
     margin = _optional_number(data, "margin", "layout")
     font_scale = _optional_number(data, "font_scale", "layout")
+    icon_position = data.get("icon_position", "leading")
+    if icon_position not in ICON_POSITIONS:
+        raise SpecError(
+            f"layout 'icon_position' must be one of: {', '.join(sorted(ICON_POSITIONS))}"
+        )
     step_x = _optional_number(data, "step_x", "layout")
     step_y = _optional_number(data, "step_y", "layout")
     if card_width is not None and card_width <= 0:
@@ -264,6 +271,7 @@ def _parse_layout(data: Any) -> Layout:
         direction=direction,
         margin=margin,
         font_scale=1.0 if font_scale is None else float(font_scale),
+        icon_position=icon_position,
         step_x=step_x,
         step_y=step_y,
     )

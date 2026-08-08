@@ -129,12 +129,24 @@ group visibly off-center and gives every card a different icon-to-text gap.
 Check: the midpoint of icon ink start to title ink end equals the card's center
 within a pixel; vertical block midpoint within about 2 px of half the height.
 
-### 8. Text is neither squeezed nor overflowing
+### 8. Type is never stretched or squeezed
 
-Nothing is compressed with `textLength` unless it genuinely does not fit, and
-nothing spills past its column.
+Every glyph renders at its natural width. Copy is fitted by choosing a size and
+wrapping, never by distorting letterforms.
 
-Check: count `textLength` in the SVG. Every occurrence needs a reason.
+`textLength` with `lengthAdjust` is the trap: it silently rescales glyph widths
+to hit a target, so one card gets a 37 percent squeeze while its neighbour is
+untouched, and the two faces sit side by side looking like different fonts. It
+is worse than a size step because it is invisible in the code and obvious on the
+page.
+
+When copy does not fit, step the size down for the whole diagram - one title
+size shared by every card - so the type stays consistent as well as undistorted.
+If that pushes the size below what the diagram needs, the card is too small:
+widen it rather than reaching for a squeeze.
+
+Check: `textLength`, `lengthAdjust` and `font-stretch` must not appear anywhere
+in the SVG. Title font sizes should be a single value across all cards.
 
 ### 9. Annotation earns its space
 

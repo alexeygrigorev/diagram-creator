@@ -163,6 +163,18 @@ order and the renderer cascades them, so edges need no route of their own:
 - `manual` uses each node's `x` and `y`; set shared `card_width` and
   `card_height` in `layout`, or override `width` and `height` on a node.
 
+Two layout options apply to cards in any layout. `font_scale` scales card type
+and its vertical rhythm together, for a diagram that has to stay legible after
+being scaled down to a phone. `icon_position` is `leading` (icon beside the
+title) or `above` (icon over a centered title); `above` needs roughly half the
+card width for the same title, which makes cards squarer - worth it in a ring,
+where flat cards give uneven gaps and unequal connector lengths.
+
+Titles and subtitles are never stretched or squeezed. Each diagram picks one
+title size and one subtitle size - the largest that fits every card
+undistorted - so the type stays consistent and every glyph keeps its natural
+width.
+
 Manual layouts still use reusable cards and icons—the JSON controls placement,
 not raw SVG markup:
 

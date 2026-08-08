@@ -56,32 +56,32 @@
 
   <g class="node node-blue" transform="translate(30 40)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <use href="#icon-document" x="14.93" y="15" width="34" height="34" color="#2563eb"/>
-    <text class="node-title icon-copy" x="53.86" y="39.2" font-size="20" textLength="154.14" lengthAdjust="spacingAndGlyphs">Documentation</text>
+    <use href="#icon-document" x="10.18" y="15" width="34" height="34" color="#2563eb"/>
+    <text class="node-title icon-copy" x="49.11" y="38.84" font-size="19">Documentation</text>
     <text class="node-subtitle" x="115" y="70" font-size="16">Published guides</text>
   </g>
   <g class="node node-blue" transform="translate(30 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#eff6ff" stroke="#2563eb"/>
-    <use href="#icon-github" x="21.15" y="15" width="34" height="34" color="#2563eb"/>
-    <text class="node-title icon-copy" x="66.3" y="39.2" font-size="20" textLength="141.7" lengthAdjust="spacingAndGlyphs">Course repos</text>
+    <use href="#icon-github" x="21.67" y="15" width="34" height="34" color="#2563eb"/>
+    <text class="node-title icon-copy" x="66.82" y="38.84" font-size="19">Course repos</text>
     <text class="node-subtitle" x="115" y="70" font-size="16">Markdown files</text>
   </g>
   <g class="node node-green" transform="translate(30 320)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#ecfdf5" stroke="#15803d"/>
-    <use href="#icon-database" x="22.65" y="15" width="34" height="34" color="#15803d"/>
-    <text class="node-title icon-copy" x="63.28" y="39.2" font-size="20">FAQ dataset</text>
+    <use href="#icon-database" x="26.12" y="15" width="34" height="34" color="#15803d"/>
+    <text class="node-title icon-copy" x="66.75" y="38.84" font-size="19">FAQ dataset</text>
     <text class="node-subtitle" x="115" y="70" font-size="16">Reviewed records</text>
   </g>
   <g class="node node-amber" transform="translate(435 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#fff7ed" stroke="#c2410c"/>
-    <use href="#icon-settings" x="29.03" y="15" width="34" height="34" color="#c2410c"/>
-    <text class="node-title icon-copy" x="73.6" y="39.2" font-size="20">Build index</text>
+    <use href="#icon-settings" x="32.18" y="15" width="34" height="34" color="#c2410c"/>
+    <text class="node-title icon-copy" x="76.75" y="38.84" font-size="19">Build index</text>
     <text class="node-subtitle" x="115" y="70" font-size="16">Combine all sources</text>
   </g>
   <g class="node node-purple" transform="translate(840 180)" filter="url(#shadow)">
     <rect width="230" height="90" rx="18" fill="#f5f3ff" stroke="#7c3aed"/>
-    <use href="#icon-search" x="16.9" y="15" width="34" height="34" color="#7c3aed"/>
-    <text class="node-title icon-copy" x="59.23" y="39.2" font-size="20" textLength="148.77" lengthAdjust="spacingAndGlyphs">FAQ assistant</text>
+    <use href="#icon-search" x="17.39" y="15" width="34" height="34" color="#7c3aed"/>
+    <text class="node-title icon-copy" x="59.72" y="38.84" font-size="19">FAQ assistant</text>
     <text class="node-subtitle" x="115" y="70" font-size="16">Fresh search in Lambda</text>
   </g>
 </svg>

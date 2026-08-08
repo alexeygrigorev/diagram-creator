@@ -75,7 +75,8 @@ CENTER_TITLE_RATIO, CENTER_DETAIL_RATIO = 0.22, 0.72
 CENTER_TITLE_MIN, CENTER_TITLE_MAX = 16, 44
 CENTER_TRACKING = 0.08
 CENTER_DETAIL_LINES = 3
-CAP_HALF = 0.36
+CAP_HALF, CAP_HEIGHT = 0.36, 0.72
+TITLE_GAP = 10
 # Where each icon's ink actually starts and ends inside its box, as a fraction of
 # the box, measured by scripts/measure_icons.py. Artwork does not fill the slot
 # evenly, so centring an icon-and-label group on the box leaves the group looking
@@ -376,7 +377,20 @@ def render_svg_text(
     if spec.center is not None:
         parts.extend(("", _draw_center(spec, canvas_width, canvas_height)))
     parts.append("")
-    parts.extend(_draw_node(node, boxes[node.id], spec.layout.font_scale) for node in spec.nodes)
+    title_size = _card_title_size(spec, boxes)
+    subtitle_size = _card_subtitle_size(spec, boxes)
+    stacked = spec.layout.icon_position == "above"
+    parts.extend(
+        _draw_node(
+            node,
+            boxes[node.id],
+            spec.layout.font_scale,
+            title_size,
+            subtitle_size,
+            stacked,
+        )
+        for node in spec.nodes
+    )
     parts.append("</svg>\n")
     return "\n".join(parts)
 
@@ -711,22 +725,75 @@ def _text_width(text: str, size: int, weight: int) -> float:
     return size * sum(table.get(character, fallback) for character in text)
 
 
-def _fit(text: str, available: float, size: int, weight: int) -> str:
-    """Squeeze a line into its column only when it would otherwise overflow."""
-    if _text_width(text, size, weight) <= available:
-        return ""
-    return f' textLength="{_number(available)}" lengthAdjust="spacingAndGlyphs"'
+def _card_title_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
+    """The largest title size at or below the requested one that fits every card.
+
+    Squeezing a title with `textLength` distorts the letterforms - a 37 percent
+    squeeze is plainly visible next to an untouched neighbour - and it makes the
+    type inconsistent across a diagram. Stepping the size down instead keeps
+    every title in the same, undistorted face.
+    """
+    scale = spec.layout.font_scale
+    wanted = round(TITLE_SIZE * scale)
+    icon_size, gutter = round(ICON_SIZE * scale), ICON_GUTTER * scale
+    # An icon above the title leaves the title the card's full inner width.
+    stacked = spec.layout.icon_position == "above"
+    for size in range(wanted, 7, -1):
+        if all(
+            _text_width(node.title, size, TITLE_WEIGHT)
+            <= boxes[node.id].width
+            - 32
+            - (
+                0
+                if stacked or not node.icon
+                else (
+                    ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)[1]
+                    - ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)[0]
+                )
+                * icon_size
+                + gutter
+            )
+            for node in spec.nodes
+            if node.variant != "icon"
+        ):
+            return size
+    return 8
 
 
-def _draw_node(node: Node, box: Box, scale: float = 1.0) -> str:
+def _card_subtitle_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
+    """The largest subtitle size whose wrapped lines fit every card undistorted."""
+    wanted = round(SUBTITLE_SIZE * spec.layout.font_scale)
+    for size in range(wanted, 7, -1):
+        if all(
+            all(
+                _text_width(line, size, SUBTITLE_WEIGHT) <= boxes[node.id].width - 32
+                for line in _wrap_lines(
+                    node.subtitle, boxes[node.id].width - 32, size, SUBTITLE_WEIGHT, SUBTITLE_LINES
+                )
+            )
+            for node in spec.nodes
+            if node.subtitle and node.variant != "icon"
+        ):
+            return size
+    return 8
+
+
+def _draw_node(
+    node: Node,
+    box: Box,
+    scale: float = 1.0,
+    title_size: int | None = None,
+    subtitle_size: int | None = None,
+    stacked: bool = False,
+) -> str:
     palette = PALETTES[node.color]
     if node.variant == "icon":
         return _draw_icon_node(node, box, palette)
     plain = node.variant == "plain"
     # One scale drives glyph sizes and the vertical rhythm together, so a card
     # with bigger type keeps the same proportions rather than just crowding.
-    title_size = round(TITLE_SIZE * scale)
-    subtitle_size = round(SUBTITLE_SIZE * scale)
+    title_size = round(TITLE_SIZE * scale) if title_size is None else title_size
+    subtitle_size = round(SUBTITLE_SIZE * scale) if subtitle_size is None else subtitle_size
     eyebrow_size = round(EYEBROW_SIZE * scale)
     icon_size = round(ICON_SIZE * scale)
     gutter = ICON_GUTTER * scale
@@ -738,17 +805,23 @@ def _draw_node(node: Node, box: Box, scale: float = 1.0) -> str:
     )
     # Every row the card carries belongs to one block centered on the card, so
     # the stack is measured top-down and then placed, rather than nudged.
+    stacked = stacked and bool(node.icon)
+    title_row = round(title_size * CAP_HEIGHT) if stacked else 0
+    title_room_above = (TITLE_GAP * scale + title_row) if stacked else 0
     eyebrow_room = (EYEBROW_INK + EYEBROW_GAP) * scale if node.eyebrow else 0
     subtitle_room = (
         (SUBTITLE_GAP + SUBTITLE_ASCENT + (len(subtitle_lines) - 1) * SUBTITLE_LINE) * scale
         if subtitle_lines
         else 0
     ) + SUBTITLE_DESCENT * scale
-    block_top = (box.height - (eyebrow_room + icon_size + subtitle_room)) / 2
+    block_top = (box.height - (eyebrow_room + icon_size + title_room_above + subtitle_room)) / 2
     icon_y = 19 if compact else block_top + eyebrow_room
     # The title's cap height centres on the icon's middle, not its baseline, or
     # the glyph hangs below the text it labels.
-    title_y = 27 if compact else icon_y + icon_size / 2 + title_size * CAP_HALF
+    if stacked:
+        title_y = icon_y + icon_size + TITLE_GAP * scale + title_row
+    else:
+        title_y = 27 if compact else icon_y + icon_size / 2 + title_size * CAP_HALF
     subtitle_y = 50 if compact else icon_y + icon_size + (SUBTITLE_GAP + SUBTITLE_ASCENT) * scale
     eyebrow_y = 25 if compact else block_top + EYEBROW_INK * scale
     center_x = box.width / 2
@@ -775,10 +848,15 @@ def _draw_node(node: Node, box: Box, scale: float = 1.0) -> str:
     # title puts the two lines on competing axes.
     ink_start, ink_end = ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)
     ink_left, ink_width = ink_start * icon_size, (ink_end - ink_start) * icon_size
-    title_width = box.width - (2 * (16 + gutter) + ink_width if node.icon else 32)
+    title_width = box.width - 32 - (0 if stacked or not node.icon else ink_width + gutter)
     title_room = min(_text_width(node.title, title_size, TITLE_WEIGHT), title_width)
     # Centre what is visible: the icon's ink plus the gutter plus the title.
-    group_x = (box.width - (ink_width + gutter + title_room)) / 2 - ink_left if node.icon else 0
+    if stacked:
+        group_x = (box.width - ink_width) / 2 - ink_left
+    elif node.icon:
+        group_x = (box.width - (ink_width + gutter + title_room)) / 2 - ink_left
+    else:
+        group_x = 0
     if node.icon == "mention":
         lines.append(
             f'    <text class="mention-icon" x="{_number(group_x + icon_size / 2)}" '
@@ -790,20 +868,18 @@ def _draw_node(node: Node, box: Box, scale: float = 1.0) -> str:
             f'y="{_number(icon_y)}" '
             f'width="{icon_size}" height="{icon_size}" color="{palette.stroke}"/>'
         )
-    title_x = group_x + ink_left + ink_width + gutter if node.icon else center_x
-    title_class = "node-title icon-copy" if node.icon else "node-title"
+    title_x = center_x if stacked or not node.icon else group_x + ink_left + ink_width + gutter
+    title_class = "node-title" if stacked or not node.icon else "node-title icon-copy"
     lines.append(
         f'    <text class="{title_class}" x="{_number(title_x)}" '
-        f'y="{_number(title_y)}" font-size="{title_size}"'
-        f"{_fit(node.title, title_width, title_size, TITLE_WEIGHT)}>"
+        f'y="{_number(title_y)}" font-size="{title_size}">'
         f"{escape(node.title)}</text>"
     )
     for index, line in enumerate(subtitle_lines):
         lines.append(
             f'    <text class="node-subtitle" x="{_number(center_x)}" '
             f'y="{_number(subtitle_y + index * SUBTITLE_LINE * scale)}" '
-            f'font-size="{subtitle_size}"'
-            f"{_fit(line, box.width - 32, subtitle_size, SUBTITLE_WEIGHT)}>"
+            f'font-size="{subtitle_size}">'
             f"{escape(line)}</text>"
         )
     lines.append("  </g>")
