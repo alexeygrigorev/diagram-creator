@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import math
 import re
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from html import escape
 from importlib.resources import files
@@ -52,6 +54,10 @@ PALETTES = {
 }
 
 EDGE_COLORS = {name: palette.stroke for name, palette in PALETTES.items()}
+RING_MARGIN = 40
+RING_EDGE_GAP = 12
+RING_ARC_SAMPLES = 240
+RING_CARD_GAP = 24
 DEFAULT_STANDALONE_ICON_SIZE = 56
 STANDALONE_ICON_DIMENSIONS = {
     "user": (56, 56),
@@ -269,23 +275,131 @@ def _horizontal_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, 
     }
 
 
+@dataclass(frozen=True)
+class Ring:
+    """The circle that ring-layout card centers sit on."""
+
+    center_x: float
+    center_y: float
+    radius: float
+    count: int
+
+    def angle(self, index: int) -> float:
+        """Clockwise angle of one slot, measured from the top of the circle."""
+        return 2 * math.pi * index / self.count
+
+    def point(self, angle: float) -> tuple[float, float]:
+        return (
+            self.center_x + self.radius * math.sin(angle),
+            self.center_y - self.radius * math.cos(angle),
+        )
+
+
+def _ring_geometry(spec: DiagramSpec, width: int, height: int) -> Ring:
+    """Fit the largest circle whose cards still clear the canvas margin."""
+    count = len(spec.nodes)
+    card_width = spec.layout.card_width or 260
+    card_height = spec.layout.card_height or 100
+    margin = RING_MARGIN if spec.layout.margin is None else spec.layout.margin
+    sizes = [(node.width or card_width, node.height or card_height) for node in spec.nodes]
+    # Card centers on a unit circle, first slot at the top and running clockwise.
+    offsets = [
+        (math.sin(2 * math.pi * index / count), -math.cos(2 * math.pi * index / count))
+        for index in range(count)
+    ]
+
+    def extents(radius: float) -> tuple[float, float, float, float]:
+        spans = [
+            (
+                radius * offset_x - size_width / 2,
+                radius * offset_x + size_width / 2,
+                radius * offset_y - size_height / 2,
+                radius * offset_y + size_height / 2,
+            )
+            for (offset_x, offset_y), (size_width, size_height) in zip(offsets, sizes, strict=True)
+        ]
+        return (
+            min(span[0] for span in spans),
+            max(span[1] for span in spans),
+            min(span[2] for span in spans),
+            max(span[3] for span in spans),
+        )
+
+    available_width = width - 2 * margin
+    available_height = height - 2 * margin
+    limit = float(max(width, height))
+
+    def fits(radius: float) -> bool:
+        left, right, top, bottom = extents(radius)
+        return right - left <= available_width and bottom - top <= available_height
+
+    fitted = _bisect(limit, fits, keep_low=True)
+    spaced = _bisect(
+        limit, lambda radius: _ring_cards_clear(offsets, sizes, radius), keep_low=False
+    )
+    if not fits(spaced):
+        left, right, top, bottom = extents(spaced)
+        raise SpecError(
+            "ring layout cards overlap on this canvas; use at least "
+            f"{math.ceil(right - left + 2 * margin)}x{math.ceil(bottom - top + 2 * margin)} "
+            "or smaller cards"
+        )
+
+    left, right, top, bottom = extents(fitted)
+    return Ring(
+        center_x=margin + (available_width - (right - left)) / 2 - left,
+        center_y=margin + (available_height - (bottom - top)) / 2 - top,
+        radius=fitted,
+        count=count,
+    )
+
+
+def _ring_cards_clear(
+    offsets: list[tuple[float, float]],
+    sizes: list[tuple[float, float]],
+    radius: float,
+) -> bool:
+    """True when every pair of cards keeps a visible gap at this radius."""
+    for first in range(len(offsets)):
+        for second in range(first + 1, len(offsets)):
+            gap_x = abs(offsets[first][0] - offsets[second][0]) * radius
+            gap_y = abs(offsets[first][1] - offsets[second][1]) * radius
+            span_x = (sizes[first][0] + sizes[second][0]) / 2 + RING_CARD_GAP
+            span_y = (sizes[first][1] + sizes[second][1]) / 2 + RING_CARD_GAP
+            if gap_x < span_x and gap_y < span_y:
+                return False
+    return True
+
+
+def _bisect(limit: float, holds: Callable[[float], bool], *, keep_low: bool) -> float:
+    """Find the boundary radius of a monotone predicate over ``[0, limit]``.
+
+    ``keep_low`` returns the largest radius that still holds; otherwise the
+    smallest radius that starts holding.
+    """
+    low, high = 0.0, limit
+    for _ in range(64):
+        candidate = (low + high) / 2
+        if holds(candidate) == keep_low:
+            low = candidate
+        else:
+            high = candidate
+    return low if keep_low else high
+
+
 def _ring_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
     card_width = spec.layout.card_width or 260
     card_height = spec.layout.card_height or 100
-    x_scale = width / 1100
-    y_scale = height / 550
-    positions = (
-        ((width - card_width) / 2, 20 * y_scale),
-        (width - 80 * x_scale - card_width, 155 * y_scale),
-        (width - 210 * x_scale - card_width, 415 * y_scale),
-        (210 * x_scale, 415 * y_scale),
-        (80 * x_scale, 155 * y_scale),
-    )
-    # The expanded expressions keep the right-hand positions mirrored when the canvas scales.
-    return {
-        node.id: Box(x, y, node.width or card_width, node.height or card_height)
-        for node, (x, y) in zip(spec.nodes, positions, strict=True)
-    }
+    ring = _ring_geometry(spec, width, height)
+    boxes = {}
+    for index, node in enumerate(spec.nodes):
+        box_width = node.width or card_width
+        box_height = node.height or card_height
+        center_x, center_y = ring.point(ring.angle(index))
+        boxes[node.id] = Box(
+            center_x - box_width / 2, center_y - box_height / 2, box_width, box_height
+        )
+    return boxes
 
 
 def _draw_node(node: Node, box: Box) -> str:
@@ -425,7 +539,11 @@ def _draw_edge(
     width: int,
     height: int,
 ) -> str:
-    route = "ring" if spec.layout.type == "ring" and edge.route == "forward" else edge.route
+    if spec.layout.type == "ring":
+        route = "ring" if edge.route in {"forward", "ring"} else edge.route
+    else:
+        # A ring route has no circle to follow outside a ring layout.
+        route = "curve" if edge.route == "ring" else edge.route
     if route == "ring":
         path, label_point = _ring_path(spec, edge, boxes, width, height)
     elif route == "below":
@@ -467,37 +585,31 @@ def _ring_path(
     target_index = node_ids.index(edge.target)
     if target_index != (source_index + 1) % len(node_ids):
         raise SpecError("ring edges must connect each node to the next node in JSON order")
-    box = boxes[edge.source]
-    target = boxes[edge.target]
-    x_scale = width / 1100
-    y_scale = height / 550
+    ring = _ring_geometry(spec, width, height)
+    start_angle = ring.angle(source_index)
+    span = 2 * math.pi / ring.count
+    start = _ring_exit(ring, boxes[edge.source], start_angle, span)
+    end = _ring_exit(ring, boxes[edge.target], start_angle + span, -span)
+    radius = _number(ring.radius)
+    path = f"M{_point(ring.point(start))}A{radius} {radius} 0 0 1 {_point(ring.point(end))}"
+    return path, ring.point((start + end) / 2)
 
-    if source_index == 0:
-        start = (box.right, box.center_y)
-        end = (target.center_x - 20 * x_scale, target.y)
-        c1 = (start[0] + 90 * x_scale, start[1])
-        c2 = (end[0] - 30 * x_scale, end[1] - 50 * y_scale)
-    elif source_index == 1:
-        start = (box.center_x, box.bottom)
-        end = (target.center_x + 20 * x_scale, target.y)
-        c1 = (start[0], start[1] + 75 * y_scale)
-        c2 = (end[0] + 70 * x_scale, end[1] - 35 * y_scale)
-    elif source_index == 2:
-        start = (box.x, box.center_y)
-        end = (target.right, target.center_y)
-        return _line_path(start, end)
-    elif source_index == 3:
-        start = (box.center_x - 20 * x_scale, box.y)
-        end = (target.center_x, target.bottom)
-        c1 = (start[0] - 70 * x_scale, start[1] - 35 * y_scale)
-        c2 = (end[0], end[1] + 75 * y_scale)
-    else:
-        start = (box.center_x + 20 * x_scale, box.y)
-        end = (target.x, target.center_y)
-        c1 = (start[0] + 30 * x_scale, start[1] - 50 * y_scale)
-        c2 = (end[0] - 90 * x_scale, end[1])
-    path = f"M{_point(start)}C{_point(c1)} {_point(c2)} {_point(end)}"
-    return path, _bezier_midpoint(start, c1, c2, end)
+
+def _ring_exit(ring: Ring, box: Box, angle: float, span: float) -> float:
+    """Walk along the arc away from one card until the path clears it."""
+    for step in range(RING_ARC_SAMPLES + 1):
+        candidate = angle + span * step / RING_ARC_SAMPLES
+        x, y = ring.point(candidate)
+        clear = (
+            x < box.x - RING_EDGE_GAP
+            or x > box.right + RING_EDGE_GAP
+            or y < box.y - RING_EDGE_GAP
+            or y > box.bottom + RING_EDGE_GAP
+        )
+        if clear:
+            return candidate
+    # The cards are packed tight enough to swallow the whole arc; keep a visible stub.
+    return angle + span * 0.4
 
 
 def _direct_path(
@@ -575,8 +687,11 @@ def _bezier_midpoint(
 def _draw_center(spec: DiagramSpec, width: int, height: int) -> str:
     assert spec.center is not None
     center = spec.center
-    x = width / 2
-    y = height * 285 / 550 if spec.layout.type == "ring" else height / 2
+    if spec.layout.type == "ring":
+        ring = _ring_geometry(spec, width, height)
+        x, y = ring.center_x, ring.center_y
+    else:
+        x, y = width / 2, height / 2
     lines = [
         f'  <circle class="center-annotation" cx="{_number(x)}" cy="{_number(y)}" '
         f'r="{_number(center.radius)}"/>',

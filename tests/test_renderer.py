@@ -1,4 +1,6 @@
 import json
+import math
+import re
 from pathlib import Path
 
 import pytest
@@ -6,10 +8,53 @@ from PIL import Image
 
 from diagram_creator.cli import main
 from diagram_creator.renderer import render_diagram
-from diagram_creator.spec import DiagramSpec, load_spec
+from diagram_creator.spec import DiagramSpec, SpecError, load_spec
 
 
 EXAMPLE_SPECS = tuple(sorted(Path("examples").glob("*.json")))
+NODE_TRANSFORM = re.compile(r'<g class="node[^"]*" transform="translate\(([-\d.]+) ([-\d.]+)\)"')
+
+
+def ring_spec(width, height, *, count=5, margin=None):
+    layout = {"type": "ring", "card_width": 220, "card_height": 90}
+    if margin is not None:
+        layout["margin"] = margin
+    return DiagramSpec.from_dict(
+        {
+            "canvas": {"width": width, "height": height},
+            "layout": layout,
+            "nodes": [{"id": f"step-{index}", "title": f"Step {index}"} for index in range(count)],
+            "edges": [
+                {"from": f"step-{index}", "to": f"step-{(index + 1) % count}", "route": "ring"}
+                for index in range(count)
+            ],
+            "center": {"title": "LOOP"},
+        }
+    )
+
+
+def ring_card_centers(svg, card_width, card_height):
+    return [
+        (float(x) + card_width / 2, float(y) + card_height / 2)
+        for x, y in NODE_TRANSFORM.findall(svg)
+    ]
+
+
+def ring_center(centers):
+    """Evenly spaced points on a circle average out to its center."""
+    return (
+        sum(x for x, _ in centers) / len(centers),
+        sum(y for _, y in centers) / len(centers),
+    )
+
+
+def ring_angles(centers, center_x, center_y):
+    """Clockwise degrees between each pair of neighboring cards."""
+    bearings = [math.degrees(math.atan2(x - center_x, center_y - y)) % 360 for x, y in centers]
+    return [
+        (bearings[(index + 1) % len(bearings)] - bearing) % 360
+        for index, bearing in enumerate(bearings)
+    ]
 
 
 def workflow_spec():
@@ -274,7 +319,7 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     spec = DiagramSpec.from_dict(
         {
             "title": "Continuous FAQ loop",
-            "canvas": {"width": 1100, "height": 550},
+            "canvas": {"width": 940, "height": 800},
             "layout": {"type": "ring", "card_width": 260, "card_height": 100},
             "nodes": [
                 {
@@ -332,15 +377,72 @@ def test_renders_a_five_node_ring_as_svg(tmp_path):
     render_diagram(spec, output)
 
     svg = output.read_text()
-    assert 'width="1100" height="550"' in svg
-    assert 'transform="translate(420 20)"' in svg
-    assert 'transform="translate(760 155)"' in svg
-    assert 'd="M680 70C770 70 840 105 870 155"' in svg
-    assert 'd="M230 155C260 105 330 70 420 70"' in svg
+    assert 'width="940" height="800"' in svg
+    centers = ring_card_centers(svg, 260, 100)
+    assert len(centers) == 5
+    center_x, center_y = ring_center(centers)
+    radii = [math.hypot(x - center_x, y - center_y) for x, y in centers]
+    assert max(radii) - min(radii) < 0.5
+    # The first card sits at the top of the circle and the rest follow clockwise.
+    assert centers[0] == pytest.approx((center_x, center_y - radii[0]), abs=0.5)
+    assert ring_angles(centers, center_x, center_y) == pytest.approx([72] * 5, abs=0.5)
+    # Every connector is one arc that follows the ring itself.
+    edges = re.findall(r'<path class="edge" d="M[-\d. ]+A([\d.]+) ([\d.]+) 0 0 1', svg)
+    assert len(edges) == 5
+    assert all(float(x) == pytest.approx(radii[0], abs=0.5) for edge in edges for x in edge)
     assert '<symbol id="icon-database"' in svg
     assert ">@</text>" in svg
     assert 'textLength="188"' in svg
     assert "Each failure improves the data" in svg
+
+
+def test_ring_layout_centers_the_annotation_on_the_circle(tmp_path):
+    spec = ring_spec(940, 800)
+    output = tmp_path / "loop.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    center_x, center_y = ring_center(ring_card_centers(svg, 220, 90))
+    annotation = re.search(r'<circle class="center-annotation" cx="([-\d.]+)" cy="([-\d.]+)"', svg)
+    assert annotation is not None
+    assert (float(annotation.group(1)), float(annotation.group(2))) == pytest.approx(
+        (center_x, center_y), abs=0.5
+    )
+
+
+@pytest.mark.parametrize("count", [3, 4, 6, 7])
+def test_ring_layout_supports_other_node_counts(count, tmp_path):
+    spec = ring_spec(940, 940, count=count)
+    output = tmp_path / "loop.svg"
+
+    render_diagram(spec, output)
+
+    centers = ring_card_centers(output.read_text(), 220, 90)
+    assert len(centers) == count
+    center_x, center_y = ring_center(centers)
+    radii = [math.hypot(x - center_x, y - center_y) for x, y in centers]
+    assert max(radii) - min(radii) < 0.5
+    assert ring_angles(centers, center_x, center_y) == pytest.approx([360 / count] * count, abs=0.5)
+
+
+def test_ring_layout_rejects_a_canvas_that_overlaps_cards(tmp_path):
+    spec = ring_spec(1000, 300)
+
+    with pytest.raises(SpecError, match="ring layout cards overlap"):
+        render_diagram(spec, tmp_path / "loop.svg")
+
+
+def test_ring_layout_margin_shrinks_the_circle(tmp_path):
+    def radius(margin):
+        spec = ring_spec(940, 800, margin=margin)
+        output = tmp_path / f"loop-{margin}.svg"
+        render_diagram(spec, output)
+        centers = ring_card_centers(output.read_text(), 220, 90)
+        center_x, center_y = ring_center(centers)
+        return math.hypot(centers[0][0] - center_x, centers[0][1] - center_y)
+
+    assert radius(120) < radius(40)
 
 
 @pytest.mark.parametrize("source", EXAMPLE_SPECS, ids=lambda path: path.stem)

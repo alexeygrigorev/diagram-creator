@@ -13,14 +13,18 @@ occurred when SVG and PNG had independent renderers.
 
 The horizontal layout calculates equal card widths and gutters from the canvas.
 The manual layout uses explicit node origins but still draws every node through
-the same card component. The five-node ring uses a fixed clockwise slot system:
-top, upper right, lower right, lower left, and upper left. Opposite curves are
-derived as geometric mirrors, and the closing edge lands at the midpoint of the
-top card's left side.
+the same card component. The ring layout places card centers on a circle, one
+slot every `360 / count` degrees, clockwise from the top. The radius is the
+largest one whose cards still clear the canvas margin, found by bisection, and
+the resulting bounding box is centered in the canvas. A second bisection finds
+the smallest radius that keeps the cards apart; when the canvas cannot reach it,
+rendering fails with the canvas size that would.
 
 Each resolved card is a box with `x`, `y`, `width`, and `height`. Connectors use
-named anchors on those boxes. Cubic curves add two control points; ring routes
-calculate those points from the symmetric slot geometry.
+named anchors on those boxes. Cubic curves add two control points. Ring routes
+are arcs of the layout circle itself: the router walks the arc away from each
+card until it clears that card's box, then joins the two points with a single
+SVG `A` command, so every connector shares one curvature.
 
 ## Drawing order
 

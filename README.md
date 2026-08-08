@@ -4,7 +4,7 @@
 
 Diagram Creator turns a compact JSON specification into a deterministic SVG or
 PNG. The same renderer handles horizontal workflows, explicitly positioned
-rows and columns, and five-step circular loops with reusable icons.
+rows and columns, and circular loops with reusable icons.
 
 ## Quick start
 
@@ -50,8 +50,8 @@ icons, anchors, and curved connectors.
 
 ### Circular improvement loop
 
-Ring layout places five equal cards clockwise and derives mirrored connector
-curves automatically.
+Ring layout spaces equal cards evenly on a circle and draws every connector as
+an arc of that same circle.
 
 ![FAQ curation and improvement loop](examples/faq-curation-loop.png)
 
@@ -78,14 +78,13 @@ connector with arrowheads at both ends.
 }
 ```
 
-Use a ring layout for a five-stage improvement cycle. Nodes are declared
-clockwise starting at the top, and the renderer produces symmetric cards and
-curves:
+Use a ring layout for an improvement cycle. Nodes are declared clockwise
+starting at the top, and the renderer spaces them evenly on a real circle:
 
 ```json
 {
   "title": "Continuous improvement loop",
-  "canvas": {"width": 1100, "height": 550, "background": "#ffffff"},
+  "canvas": {"width": 940, "height": 800, "background": "#ffffff"},
   "layout": {"type": "ring", "card_width": 260, "card_height": 100},
   "nodes": [
     {"id": "one", "title": "Contribute", "color": "blue", "icon": "issue"},
@@ -111,7 +110,12 @@ The complete source for the diagram above is
 ### Layouts
 
 - `horizontal` places every node in one evenly spaced row.
-- `ring` places exactly five equal cards clockwise around a center annotation.
+- `ring` spaces three or more cards evenly on a circle, clockwise from the top,
+  around a center annotation. The renderer fits the largest circle the canvas
+  allows, so give a ring a roughly square canvas - a wide one only adds side
+  margins. Set `margin` to change the gap kept around the cards, which defaults
+  to 40. Rendering fails with a suggested canvas size when the cards would
+  overlap.
 - `grid` places nodes by `row` and `column`, sizes each column and row to its
   largest node, and preserves equal `column_gap` and `row_gap` gutters. Set
   `column_width` and `row_height` when every grid cell should use fixed dimensions.

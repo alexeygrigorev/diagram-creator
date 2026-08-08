@@ -10,8 +10,8 @@ publishing. Keep the JSON beside the generated asset or in the project’s
 diagram-source directory so later changes do not require hand-editing SVG.
 
 Use `horizontal` for one row, `grid` for deliberate rows and columns, `ring`
-for a five-stage circular loop, and `manual` for free-form branches and mixed
-positions. Grid nodes use `row` and `column`; grid columns and rows size to
+for a circular loop of three or more stages, and `manual` for free-form
+branches and mixed positions. Grid nodes use `row` and `column`; grid columns and rows size to
 their largest node while `column_gap` and `row_gap` remain equal. Set
 `column_width` and `row_height` when every grid cell should use fixed
 dimensions. Manual layout keeps explicit `x` and `y` available when the grid
@@ -218,20 +218,23 @@ all cards.
 
 ## Circular loop illustrations
 
-Use a symmetric ring when the final step improves or restarts the first step.
-For five nodes, place one card at the top, two at the sides, and two at the
-bottom. Keep every card the same size and keep opposite positions mirrored
-around the canvas center.
+Use a ring when the final step improves or restarts the first step. Declare
+nodes clockwise starting at the top and connect each node to the next with
+`route: "ring"`. The renderer spaces the cards evenly on a circle, fits the
+largest circle the canvas allows, centers the result, and draws every connector
+as an arc of that same circle. Do not recreate the ring with manual
+coordinates.
 
-Use a `1100×550` canvas with `260×100` cards. Declare nodes clockwise starting
-at the top and connect each node to the next with `route: "ring"`. The renderer
-places the five cards in symmetric slots, mirrors opposite Bézier curves, and
-uses a straight horizontal arrow between the bottom cards. Do not recreate the
-ring with manual coordinates.
+Give a ring a roughly square canvas. The circle can only grow until its cards
+reach the margin, so a wide canvas produces a small circle with large side
+margins rather than a wider loop. A `940×800` canvas with `260×100` cards suits
+five nodes; more nodes need more room. Rendering fails with a suggested canvas
+size when the cards would overlap, so start from that number when a ring is
+rejected. Set `layout.margin` to change the 40 px gap kept around the cards.
 
 ```json
 {
-  "canvas": {"width": 1100, "height": 550, "background": "#ffffff"},
+  "canvas": {"width": 940, "height": 800, "background": "#ffffff"},
   "layout": {"type": "ring", "card_width": 260, "card_height": 100},
   "nodes": [
     {"id": "one", "title": "Contribute", "icon": "issue", "color": "blue"},

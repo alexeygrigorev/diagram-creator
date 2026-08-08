@@ -59,6 +59,7 @@ class Layout:
     column_width: float | None = None
     row_height: float | None = None
     direction: str = "clockwise"
+    margin: float | None = None
 
 
 @dataclass(frozen=True)
@@ -161,8 +162,8 @@ class DiagramSpec:
                 if cell in cells:
                     raise SpecError("grid layout requires each node to use a unique cell")
                 cells.add(cell)
-        if layout.type == "ring" and len(nodes) != 5:
-            raise SpecError("ring layout currently requires exactly five nodes")
+        if layout.type == "ring" and len(nodes) < 3:
+            raise SpecError("ring layout requires at least three nodes")
 
         title = data.get("title", "Workflow diagram")
         description = data.get("description", "")
@@ -213,6 +214,7 @@ def _parse_layout(data: Any) -> Layout:
     row_gap = data.get("row_gap", 60)
     column_width = _optional_number(data, "column_width", "layout")
     row_height = _optional_number(data, "row_height", "layout")
+    margin = _optional_number(data, "margin", "layout")
     if card_width is not None and card_width <= 0:
         raise SpecError("layout 'card_width' must be positive")
     if card_height is not None and card_height <= 0:
@@ -225,6 +227,8 @@ def _parse_layout(data: Any) -> Layout:
         raise SpecError("layout 'column_width' must be positive")
     if row_height is not None and row_height <= 0:
         raise SpecError("layout 'row_height' must be positive")
+    if margin is not None and margin < 0:
+        raise SpecError("layout 'margin' must be a non-negative number")
     direction = data.get("direction", "clockwise")
     if direction != "clockwise":
         raise SpecError("ring direction currently must be 'clockwise'")
@@ -237,6 +241,7 @@ def _parse_layout(data: Any) -> Layout:
         column_width=column_width,
         row_height=row_height,
         direction=direction,
+        margin=margin,
     )
 
 
