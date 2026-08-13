@@ -203,8 +203,10 @@ Use `"variant": "icon"` for a standalone icon with its `title` underneath and
 no surrounding card. Add `"show_label": false` when the icon should appear
 without a visible label; the title remains available to the diagram's
 accessible description. Set `"icon_size"` when a symbol needs an explicit
-override. Standalone `user`, `browser`, and `database` icons otherwise use the
-shared 56×56 px, 160×112 px, and 84×84 px dimension tokens respectively.
+override. Standalone `user`, `browser`, `database`, and `volume` icons otherwise
+use the shared 56×56 px, 160×112 px, 84×84 px, and 84×84 px dimension tokens
+respectively. Connectors attach to the visible icon artwork rather than any
+transparent padding around it.
 
 Use `"variant": "plain"` for a card without its rectangle. The node keeps the
 same grid cell, icon column, and typography, but drops the fill, border, and
@@ -212,9 +214,9 @@ shadow, so it reads as a label rather than a component. A plain node with an
 icon left-aligns its subtitle on the title axis because there is no card to
 center against.
 
-Add `"dividers"` to a grid diagram to separate rows with a dashed rule. Each
-entry takes `after_row`, and the rule is drawn halfway between that row and the
-one below it across the full grid width:
+Add `"dividers"` to a grid or row-labelled manual diagram to separate rows with
+a dashed rule. Each entry takes `after_row`, and the rule is drawn halfway
+between that row and the one below it across the full layout width:
 
 ```json
 "dividers": [{"after_row": 0}, {"after_row": 1}]
@@ -223,10 +225,15 @@ one below it across the full grid width:
 ### Components and tokens
 
 Node colors are `purple`, `blue`, `amber`, `green`, `red`, and `gray`.
-Available icons are `github`, `search`, `database`, `openai`, `issue`,
-`document`, `user`, `browser`, `websocket`, `api`, `settings`, `pull-request`,
-`rank-fusion`, `message`, `video`, `sparkles`, `check`, `warning`, `close`,
-`mention`, `number-1`, `number-2`, and `number-3`.
+Available icons are `aws`, `github`, `search`, `shield`, `container`,
+`database`, `volume`, `openai`, `issue`, `document`, `user`, `browser`,
+`websocket`, `api`, `settings`, `pull-request`, `rank-fusion`, `message`,
+`video`, `sparkles`, `check`, `warning`, `close`, `mention`, `number-1`,
+`number-2`, and `number-3`.
+
+Use `"variant": "boundary"` in a manual layout for a dashed infrastructure or
+runtime boundary behind related nodes. Give it explicit `x`, `y`, `width`, and
+`height`; its title appears in the top-left corner.
 
 Cards use one component system: a 16 px inset, 28 px icon viewport, 2 px
 semantic border, 18 px radius, and a shared shadow. An icon anchors the card to
@@ -234,12 +241,16 @@ a left edge and the subtitle shares that margin; a card without an icon centers
 both lines instead. Either way the title and subtitle sit on one axis, the block
 is centered on the card, and long lines are fitted to the available column.
 
-Edge routes are `forward`, `below`, `straight`, `curve`, `ring`, and `step`. A
-`step` leaves one card through its side, turns once halfway across the gap, and
-enters the next card's top or bottom edge; it is what `forward` means inside a
-staircase, and it also works in a grid or manual layout. Explicit
-edges accept `from_anchor` and `to_anchor` values of `left`, `right`, `top`, or
-`bottom`. A curve takes exactly two absolute `[x, y]` control points.
+Edge routes are `forward`, `below`, `straight`, `curve`, `orthogonal`, `ring`,
+and `step`. A `step` leaves one card through its side, turns once halfway across
+the gap, and enters the next card's top or bottom edge; it is what `forward`
+means inside a staircase, and it also works in a grid or manual layout.
+`orthogonal` uses only horizontal and vertical segments. Explicit edges accept
+`from_anchor` and `to_anchor` values of `left`, `left_top`, `left_bottom`,
+`right`, `right_top`, `right_bottom`, `top`, or `bottom`. A curve takes exactly
+two absolute `[x, y]` control points. Set `"dashed": true` for a dashed edge,
+`"directed": false` for no arrowheads, or `"bidirectional": true` for
+arrowheads at both ends.
 
 ## Codex skill
 

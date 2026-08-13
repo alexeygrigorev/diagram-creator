@@ -165,6 +165,42 @@ def test_curve_route_requires_two_control_points():
         DiagramSpec.from_dict(data)
 
 
+def test_parses_an_orthogonal_route():
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "one", "title": "One"},
+                {"id": "two", "title": "Two"},
+            ],
+            "edges": [{"from": "one", "to": "two", "route": "orthogonal"}],
+        }
+    )
+
+    assert spec.edges[0].route == "orthogonal"
+
+
+def test_parses_split_side_anchors():
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "one", "title": "One"},
+                {"id": "two", "title": "Two"},
+            ],
+            "edges": [
+                {
+                    "from": "one",
+                    "to": "two",
+                    "from_anchor": "right_top",
+                    "to_anchor": "left_bottom",
+                }
+            ],
+        }
+    )
+
+    assert spec.edges[0].source_anchor == "right_top"
+    assert spec.edges[0].target_anchor == "left_bottom"
+
+
 def test_parses_a_bidirectional_edge():
     spec = DiagramSpec.from_dict(
         {
@@ -177,6 +213,34 @@ def test_parses_a_bidirectional_edge():
     )
 
     assert spec.edges[0].bidirectional is True
+
+
+def test_parses_a_dashed_edge():
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "one", "title": "One"},
+                {"id": "two", "title": "Two"},
+            ],
+            "edges": [{"from": "one", "to": "two", "dashed": True}],
+        }
+    )
+
+    assert spec.edges[0].dashed is True
+
+
+def test_parses_an_undirected_edge():
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "one", "title": "One"},
+                {"id": "two", "title": "Two"},
+            ],
+            "edges": [{"from": "one", "to": "two", "directed": False}],
+        }
+    )
+
+    assert spec.edges[0].directed is False
 
 
 def test_parses_browser_and_websocket_icons():
@@ -262,6 +326,22 @@ def test_parses_row_dividers_for_a_grid():
     assert [divider.after_row for divider in spec.dividers] == [0]
 
 
+def test_parses_row_dividers_for_a_manual_layout():
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "manual"},
+            "nodes": [
+                {"id": "first", "title": "First", "x": 20, "y": 20, "row": 0},
+                {"id": "second", "title": "Second", "x": 20, "y": 180, "row": 1},
+            ],
+            "edges": [],
+            "dividers": [{"after_row": 0}],
+        }
+    )
+
+    assert [divider.after_row for divider in spec.dividers] == [0]
+
+
 def test_rejects_a_divider_below_the_last_row():
     data = {
         "layout": {"type": "grid"},
@@ -277,7 +357,7 @@ def test_rejects_a_divider_below_the_last_row():
         DiagramSpec.from_dict(data)
 
 
-def test_rejects_dividers_outside_a_grid():
+def test_rejects_dividers_outside_a_grid_or_manual_layout():
     data = {
         "nodes": [
             {"id": "first", "title": "First"},
@@ -287,5 +367,5 @@ def test_rejects_dividers_outside_a_grid():
         "dividers": [{"after_row": 0}],
     }
 
-    with pytest.raises(SpecError, match="requires the grid layout"):
+    with pytest.raises(SpecError, match="requires the grid or manual layout"):
         DiagramSpec.from_dict(data)

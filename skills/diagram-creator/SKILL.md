@@ -18,11 +18,16 @@ their largest node while `column_gap` and `row_gap` remain equal. Set
 dimensions. Manual layout keeps explicit `x` and `y` available when the grid
 is not appropriate.
 
-Available icons are `github`, `search`, `database`, `openai`, `issue`,
-`document`, `user`, `browser`, `websocket`, `api`, `settings`, `pull-request`,
-`rank-fusion`, `message`, `video`, `sparkles`, `check`, `warning`, `close`,
-`mention`, `number-1`, `number-2`, and `number-3`. Use the numbered icons to
-mark ordered stages instead of writing the step number into the title.
+Available icons are `aws`, `github`, `search`, `shield`, `container`,
+`database`, `volume`, `openai`, `issue`, `document`, `user`, `browser`,
+`websocket`, `api`, `settings`, `pull-request`, `rank-fusion`, `message`,
+`video`, `sparkles`, `check`, `warning`, `close`, `mention`, `number-1`,
+`number-2`, and `number-3`. Use the numbered icons to mark ordered stages
+instead of writing the step number into the title.
+
+Use `"variant": "boundary"` in a manual layout for a dashed infrastructure or
+runtime boundary behind related nodes. Give it explicit `x`, `y`, `width`, and
+`height`; its title appears in the top-left corner.
 
 If a diagram needs an icon that is not available, create it instead of using
 an unrelated substitute. Add it to the renderer's icon library and accepted
@@ -40,15 +45,19 @@ and no card. Use this for actors and simple endpoints when a full card adds
 unnecessary visual weight. Set `"show_label": false` when the icon should have
 no visible label; keep `title` because it is still used for accessibility. Use
 `"icon_size"` for an explicit override. Prefer the reusable standalone sizes:
-56×56 px for `user`, 160×112 px for `browser`, and 84×84 px for `database`.
+56×56 px for `user`, 160×112 px for `browser`, and 84×84 px for `database` and
+`volume`.
 The renderer applies these automatically when no override is present.
+Connector anchors follow the standalone glyph's visible ink rather than its
+transparent SVG viewport, so arrows touch database, volume, browser, and user
+icons instead of stopping in invisible padding.
 
 Use `"variant": "plain"` for a card without its rectangle. It keeps the grid
 cell, icon column, and typography of a card but drops the fill, border, and
 shadow. Use it for row and stage labels that name a group of nodes instead of
 participating in the flow, and keep its subtitle on the title axis.
 
-In a grid diagram, use `"dividers": [{"after_row": 0}]` to separate rows with a
+In a grid or row-labelled manual diagram, use `"dividers": [{"after_row": 0}]` to separate rows with a
 dashed rule drawn halfway between that row and the one below. Prefer a divider
 over a connector when consecutive rows are separate snapshots of one system
 rather than steps that hand work to each other.
@@ -382,9 +391,14 @@ same command to refresh PNGs after editing their retained SVG sources.
 3. Add `icon` to icon-bearing nodes; use `mention` for the `@` glyph. Use
    `"variant": "icon"` for an icon with an optional label and no card.
 4. Use `route: "below"` for feedback, `ring` for a circular loop, `step` for a
-   single right-angled elbow between offset cards, or `curve` with two control
+   single rounded elbow between offset cards, `orthogonal` for connectors made
+   only from horizontal and vertical segments, or `curve` with two control
    points for a manual layout. Use `"bidirectional": true` for one connector
-   with arrowheads at both ends.
+   with arrowheads at both ends, `"directed": false` for a relationship line
+   without arrowheads, and `"dashed": true` for a secondary control
+   relationship rather than the main application flow.
+   Use `left_top`, `left_bottom`, `right_top`, or `right_bottom` anchors when
+   parallel inputs must attach to distinct points on one card edge.
 5. Choose node colors from `purple`, `blue`, `amber`, `green`, `red`, or `gray`.
 6. Render SVG from a checkout while iterating:
 

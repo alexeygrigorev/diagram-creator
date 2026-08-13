@@ -161,6 +161,117 @@ def test_renders_a_bidirectional_edge_with_two_arrowheads(tmp_path):
     assert 'marker-end="url(#arrow-purple)"' in svg
 
 
+def test_renders_a_dashed_edge(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "source", "title": "Source"},
+                {"id": "target", "title": "Target"},
+            ],
+            "edges": [{"from": "source", "to": "target", "dashed": True}],
+        }
+    )
+    output = tmp_path / "dashed.svg"
+
+    render_diagram(spec, output)
+
+    assert 'stroke-dasharray="8 8"' in output.read_text()
+
+
+def test_renders_an_undirected_edge_without_arrowheads(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "source", "title": "Source"},
+                {"id": "target", "title": "Target"},
+            ],
+            "edges": [{"from": "source", "to": "target", "directed": False}],
+        }
+    )
+    output = tmp_path / "undirected.svg"
+
+    render_diagram(spec, output)
+
+    edge = next(line for line in output.read_text().splitlines() if 'class="edge"' in line)
+    assert "marker-start" not in edge
+    assert "marker-end" not in edge
+
+
+def test_renders_an_orthogonal_edge_without_diagonal_segments(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 400},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {"id": "source", "title": "Source", "x": 20, "y": 150},
+                {"id": "target", "title": "Target", "x": 420, "y": 30},
+            ],
+            "edges": [
+                {
+                    "from": "source",
+                    "to": "target",
+                    "route": "orthogonal",
+                    "from_anchor": "right",
+                    "to_anchor": "left",
+                }
+            ],
+        }
+    )
+    output = tmp_path / "orthogonal.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'd="M240 200H330V80H420"' in svg
+
+
+def test_renders_orthogonal_edges_to_separate_side_anchors(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 500},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 120},
+            "nodes": [
+                {"id": "top", "title": "Top", "x": 20, "y": 40},
+                {"id": "bottom", "title": "Bottom", "x": 20, "y": 340},
+                {"id": "target", "title": "Target", "x": 420, "y": 190},
+            ],
+            "edges": [
+                {"from": "top", "to": "target", "route": "orthogonal", "to_anchor": "left_top"},
+                {
+                    "from": "bottom",
+                    "to": "target",
+                    "route": "orthogonal",
+                    "to_anchor": "left_bottom",
+                },
+            ],
+        }
+    )
+    output = tmp_path / "split-side-anchors.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'd="M240 100H330V230H420"' in svg
+    assert 'd="M240 400H330V270H420"' in svg
+
+
+def test_renders_a_container_icon(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "service", "title": "Service", "icon": "container"},
+                {"id": "data", "title": "Data", "icon": "database"},
+            ],
+            "edges": [{"from": "service", "to": "data"}],
+        }
+    )
+    output = tmp_path / "container.svg"
+
+    render_diagram(spec, output)
+
+    assert '<symbol id="icon-container"' in output.read_text()
+
+
 def test_grid_layout_uses_equal_gutters_between_variable_width_nodes(tmp_path):
     spec = DiagramSpec.from_dict(
         {
@@ -220,6 +331,62 @@ def test_renders_browser_and_websocket_symbols(tmp_path):
     assert '<symbol id="icon-websocket"' in svg
     assert 'href="#icon-browser"' in svg
     assert 'href="#icon-websocket"' in svg
+
+
+def test_renders_new_symbols_with_normalized_strokes(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "deploy", "title": "Deploy", "icon": "aws"},
+                {"id": "proxy", "title": "Proxy", "icon": "shield"},
+                {"id": "storage", "title": "Volume", "icon": "volume"},
+            ],
+            "edges": [
+                {"from": "deploy", "to": "proxy"},
+                {"from": "proxy", "to": "storage"},
+            ],
+        }
+    )
+    output = tmp_path / "new-icons.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert '<symbol id="icon-aws"' in svg
+    assert '<symbol id="icon-shield"' in svg
+    assert '<symbol id="icon-volume"' in svg
+    assert "symbol [stroke] { vector-effect: non-scaling-stroke; }" in svg
+
+
+def test_renders_boundary_behind_edges_and_nodes(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 900, "height": 420},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {
+                    "id": "host",
+                    "title": "EC2 instance",
+                    "variant": "boundary",
+                    "x": 260,
+                    "y": 50,
+                    "width": 600,
+                    "height": 300,
+                },
+                {"id": "app", "title": "App", "x": 330, "y": 160},
+                {"id": "db", "title": "Postgres", "x": 600, "y": 160},
+            ],
+            "edges": [{"from": "app", "to": "db"}],
+        }
+    )
+    output = tmp_path / "boundary.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'class="node-boundary node-blue"' in svg
+    assert svg.index('class="node-boundary node-blue"') < svg.index('class="edge"')
+    assert 'class="boundary-title"' in svg
 
 
 def test_renders_an_icon_node_with_its_label_but_without_a_card(tmp_path):
@@ -286,7 +453,7 @@ def test_renders_an_icon_node_without_a_visible_label(tmp_path):
     assert ">User</text>" not in icon_group
 
 
-def test_uses_reusable_sizes_for_standalone_browser_and_database_icons(tmp_path):
+def test_uses_reusable_sizes_for_standalone_endpoint_icons(tmp_path):
     spec = DiagramSpec.from_dict(
         {
             "layout": {"type": "manual"},
@@ -307,8 +474,19 @@ def test_uses_reusable_sizes_for_standalone_browser_and_database_icons(tmp_path)
                     "x": 300,
                     "y": 88,
                 },
+                {
+                    "id": "volume",
+                    "title": "Volume",
+                    "icon": "volume",
+                    "variant": "icon",
+                    "x": 500,
+                    "y": 88,
+                },
             ],
-            "edges": [{"from": "browser", "to": "database"}],
+            "edges": [
+                {"from": "browser", "to": "database"},
+                {"from": "database", "to": "volume"},
+            ],
         }
     )
     output = tmp_path / "semantic-icon-sizes.svg"
@@ -318,10 +496,79 @@ def test_uses_reusable_sizes_for_standalone_browser_and_database_icons(tmp_path)
     svg = output.read_text()
     assert 'href="#icon-browser" x="0" y="0" width="160" height="112"' in svg
     assert 'href="#icon-database" x="0" y="0" width="84" height="84"' in svg
-    # Stroke weight scales with the glyph everywhere, so one value reads the same
-    # in a card and standalone. A fixed device width would not.
-    database_symbol = svg.split('<symbol id="icon-database"', 1)[1].split("</symbol>", 1)[0]
-    assert "non-scaling-stroke" not in database_symbol
+    assert 'href="#icon-volume" x="0" y="0" width="84" height="84"' in svg
+
+
+def test_connectors_touch_visible_standalone_icon_ink(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 650, "height": 380},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {"id": "horizontal", "title": "App", "x": 20, "y": 80},
+                {
+                    "id": "database",
+                    "title": "Database",
+                    "icon": "database",
+                    "variant": "icon",
+                    "x": 300,
+                    "y": 88,
+                },
+                {"id": "vertical", "title": "App", "x": 232, "y": 200},
+                {
+                    "id": "volume",
+                    "title": "Volume",
+                    "icon": "volume",
+                    "variant": "icon",
+                    "x": 300,
+                    "y": 330,
+                },
+            ],
+            "edges": [
+                {"from": "horizontal", "to": "database", "route": "straight"},
+                {
+                    "from": "vertical",
+                    "to": "volume",
+                    "route": "straight",
+                    "from_anchor": "bottom",
+                    "to_anchor": "top",
+                },
+            ],
+        }
+    )
+    output = tmp_path / "visible-icon-contact.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'd="M240 130L310.5 130"' in svg
+    assert 'd="M342 300L342 340.5"' in svg
+
+
+def test_connector_leaves_visible_user_glyph_instead_of_transparent_box(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 600, "height": 280},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {
+                    "id": "user",
+                    "title": "User",
+                    "icon": "user",
+                    "variant": "icon",
+                    "x": 40,
+                    "y": 40,
+                },
+                {"id": "app", "title": "App", "x": 200, "y": 18},
+            ],
+            "edges": [{"from": "user", "to": "app", "route": "straight"}],
+        }
+    )
+    output = tmp_path / "visible-user-contact.svg"
+
+    render_diagram(spec, output)
+
+    assert 'd="M89 68L200 68"' in output.read_text()
 
     user_spec = DiagramSpec.from_dict(
         {

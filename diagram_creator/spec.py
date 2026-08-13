@@ -12,14 +12,17 @@ class SpecError(ValueError):
 
 COLORS = {"purple", "blue", "amber", "green", "red", "gray"}
 LAYOUTS = {"horizontal", "manual", "grid", "ring", "staircase"}
-ROUTES = {"forward", "below", "straight", "curve", "ring", "step"}
+ROUTES = {"forward", "below", "straight", "curve", "orthogonal", "ring", "step"}
 STAIRCASE_DIRECTIONS = {"descending", "ascending"}
-ANCHORS = {"left", "right", "top", "bottom"}
-NODE_VARIANTS = {"card", "icon", "plain"}
+ANCHORS = {"left", "left_top", "left_bottom", "right", "right_top", "right_bottom", "top", "bottom"}
+NODE_VARIANTS = {"card", "icon", "plain", "boundary"}
 ICON_POSITIONS = {"inline", "block"}
 ICONS = {
+    "aws",
     "github",
     "search",
+    "shield",
+    "container",
     "database",
     "openai",
     "issue",
@@ -41,6 +44,7 @@ ICONS = {
     "number-1",
     "number-2",
     "number-3",
+    "volume",
 }
 
 
@@ -98,6 +102,8 @@ class Edge:
     target_anchor: str | None = None
     controls: tuple[tuple[float, float], tuple[float, float]] | None = None
     bidirectional: bool = False
+    dashed: bool = False
+    directed: bool = True
 
 
 @dataclass(frozen=True)
@@ -352,6 +358,8 @@ def _parse_edge(data: Any) -> Edge:
     source_anchor = data.get("from_anchor")
     target_anchor = data.get("to_anchor")
     bidirectional = data.get("bidirectional", False)
+    dashed = data.get("dashed", False)
+    directed = data.get("directed", True)
     if not isinstance(label, str):
         raise SpecError("edge label must be a string")
     if color not in COLORS:
@@ -364,6 +372,12 @@ def _parse_edge(data: Any) -> Edge:
         raise SpecError(f"edge to_anchor must be one of: {', '.join(sorted(ANCHORS))}")
     if not isinstance(bidirectional, bool):
         raise SpecError("edge bidirectional must be a boolean")
+    if not isinstance(dashed, bool):
+        raise SpecError("edge dashed must be a boolean")
+    if not isinstance(directed, bool):
+        raise SpecError("edge directed must be a boolean")
+    if bidirectional and not directed:
+        raise SpecError("an undirected edge cannot be bidirectional")
     controls = _parse_controls(data.get("controls"))
     if route == "curve" and controls is None:
         raise SpecError("a curve edge requires two control points")
@@ -377,6 +391,8 @@ def _parse_edge(data: Any) -> Edge:
         target_anchor=target_anchor,
         controls=controls,
         bidirectional=bidirectional,
+        dashed=dashed,
+        directed=directed,
     )
 
 
@@ -401,8 +417,10 @@ def _parse_dividers(data: Any, layout: Layout, nodes: tuple[Node, ...]) -> tuple
         return ()
     if not isinstance(data, list):
         raise SpecError("'dividers' must be a list")
-    if layout.type != "grid":
-        raise SpecError("'dividers' currently requires the grid layout")
+    if layout.type not in {"grid", "manual"}:
+        raise SpecError("'dividers' requires the grid or manual layout")
+    if any(node.row is None for node in nodes):
+        raise SpecError("every node needs a row when dividers are used")
     rows = sorted({node.row for node in nodes if node.row is not None})
     dividers = []
     for item in data:

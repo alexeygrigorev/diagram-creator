@@ -91,6 +91,7 @@ TITLE_GAP = 10
 # off-centre and the icon-to-text gap different on every card.
 ICON_INK = {
     "api": (0.083, 0.917),
+    "aws": (0.125, 0.875),
     "browser": (0.0, 1.0),
     "check": (0.083, 0.917),
     "close": (0.083, 0.917),
@@ -296,6 +297,15 @@ STANDALONE_ICON_DIMENSIONS = {
     "user": (56, 56),
     "browser": (160, 112),
     "database": (84, 84),
+    "volume": (84, 84),
+}
+# Visible ink bounds inside standalone icon viewports. Connector anchors use
+# these instead of the transparent SVG box so arrows visibly touch the glyph.
+STANDALONE_CONNECTOR_INK = {
+    "browser": (0.0, 0.0, 1.0, 1.0),
+    "database": (0.125, 1 / 24, 0.875, 23 / 24),
+    "user": (0.125, 0.0, 0.875, 1.0),
+    "volume": (1 / 12, 0.125, 11 / 12, 0.875),
 }
 SYMBOL_PATTERN = re.compile(r"<symbol\s+id=\"icon-(?P<name>[^\"]+)\".*?</symbol>", re.DOTALL)
 
@@ -344,6 +354,7 @@ def render_svg_text(
     canvas_height = spec.canvas.height if height is None else height
     _validate_canvas(canvas_width, canvas_height)
     boxes = _layout(spec, canvas_width, canvas_height)
+    connector_boxes = _connector_boxes(spec, boxes)
     if spec.layout.type == "ring":
         _check_ring_chords(spec, _ring_geometry(spec, canvas_width, canvas_height), boxes)
     symbols = _symbols_for(spec)
@@ -382,8 +393,15 @@ def render_svg_text(
         f'fill="{escape(spec.canvas.background)}"/>',
         "",
     ]
+    parts.extend(
+        _draw_boundary_node(node, boxes[node.id])
+        for node in spec.nodes
+        if node.variant == "boundary"
+    )
     parts.extend(_draw_dividers(spec, boxes, canvas_width))
-    parts.extend(_draw_edge(spec, edge, boxes, canvas_width, canvas_height) for edge in spec.edges)
+    parts.extend(
+        _draw_edge(spec, edge, connector_boxes, canvas_width, canvas_height) for edge in spec.edges
+    )
     if spec.center is not None:
         parts.extend(("", _draw_center(spec, canvas_width, canvas_height)))
     parts.append("")
@@ -400,6 +418,7 @@ def render_svg_text(
             stacked,
         )
         for node in spec.nodes
+        if node.variant != "boundary"
     )
     parts.append("</svg>\n")
     return "\n".join(parts)
@@ -435,6 +454,27 @@ def _layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
     if spec.layout.type == "staircase":
         return _staircase_layout(spec, width, height)
     return _horizontal_layout(spec, width, height)
+
+
+def _connector_boxes(spec: DiagramSpec, boxes: dict[str, Box]) -> dict[str, Box]:
+    """Return visible-ink boxes for standalone icons and normal boxes otherwise."""
+    result = dict(boxes)
+    for node in spec.nodes:
+        if node.variant != "icon" or node.icon not in STANDALONE_CONNECTOR_INK:
+            continue
+        box = boxes[node.id]
+        token_width, token_height = _standalone_icon_dimensions(node)
+        icon_width = min(token_width, box.width)
+        icon_height = min(token_height, box.height)
+        icon_x = box.x + (box.width - icon_width) / 2
+        left, top, right, bottom = STANDALONE_CONNECTOR_INK[node.icon]
+        result[node.id] = Box(
+            icon_x + icon_width * left,
+            box.y + icon_height * top,
+            icon_width * (right - left),
+            icon_height * (bottom - top),
+        )
+    return result
 
 
 def _staircase_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
@@ -838,7 +878,7 @@ def _card_title_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
                 + gutter
             )
             for node in spec.nodes
-            if node.variant != "icon"
+            if node.variant not in {"icon", "boundary"}
         ):
             return size
     return 8
@@ -856,7 +896,7 @@ def _card_subtitle_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
                 )
             )
             for node in spec.nodes
-            if node.subtitle and node.variant != "icon"
+            if node.subtitle and node.variant not in {"icon", "boundary"}
         ):
             return size
     return 8
@@ -970,6 +1010,20 @@ def _draw_node(
     return "\n".join(lines)
 
 
+def _draw_boundary_node(node: Node, box: Box) -> str:
+    palette = PALETTES[node.color]
+    return "\n".join(
+        [
+            f'  <g class="node-boundary node-{escape(node.color)}" '
+            f'transform="translate({_number(box.x)} {_number(box.y)})">',
+            f'    <rect width="{_number(box.width)}" height="{_number(box.height)}" '
+            f'rx="22" fill="none" stroke="{palette.stroke}"/>',
+            f'    <text class="boundary-title" x="20" y="31">{escape(node.title)}</text>',
+            "  </g>",
+        ]
+    )
+
+
 def _draw_dividers(spec: DiagramSpec, boxes: dict[str, Box], width: int) -> list[str]:
     if not spec.dividers:
         return []
@@ -1056,14 +1110,15 @@ def _draw_edge(
         path, label_point = _step_path(edge, boxes)
     elif route == "below":
         path, label_point = _below_path(edge, boxes, width, height)
+    elif route == "orthogonal":
+        path, label_point = _orthogonal_path(edge, boxes)
     else:
         path, label_point = _direct_path(edge, boxes, curved=route == "curve")
     color = EDGE_COLORS[edge.color]
     marker_start = f' marker-start="url(#arrow-start-{edge.color})"' if edge.bidirectional else ""
-    line = (
-        f'  <path class="edge" d="{path}" stroke="{color}"{marker_start} '
-        f'marker-end="url(#arrow-{edge.color})"/>'
-    )
+    marker_end = f' marker-end="url(#arrow-{edge.color})"' if edge.directed else ""
+    dash = ' stroke-dasharray="8 8"' if edge.dashed else ""
+    line = f'  <path class="edge" d="{path}" stroke="{color}"{dash}{marker_start}{marker_end}/>'
     if not edge.label:
         return line
     x, y = label_point
@@ -1220,6 +1275,50 @@ def _direct_path(
     return _line_path(start, end)
 
 
+def _orthogonal_path(
+    edge: Edge,
+    boxes: dict[str, Box],
+) -> tuple[str, tuple[float, float]]:
+    """Join two anchors with horizontal and vertical segments only."""
+    source = boxes[edge.source]
+    target = boxes[edge.target]
+    default_source, default_target = _default_anchors(source, target)
+    source_anchor = edge.source_anchor or default_source
+    target_anchor = edge.target_anchor or default_target
+    start = _anchor(source, source_anchor)
+    end = _anchor(target, target_anchor)
+    source_horizontal = source_anchor in {
+        "left",
+        "left_top",
+        "left_bottom",
+        "right",
+        "right_top",
+        "right_bottom",
+    }
+    target_horizontal = target_anchor in {
+        "left",
+        "left_top",
+        "left_bottom",
+        "right",
+        "right_top",
+        "right_bottom",
+    }
+
+    if source_horizontal != target_horizontal:
+        elbow = (end[0], start[1]) if source_horizontal else (start[0], end[1])
+        path = f"M{_point(start)}L{_point(elbow)}L{_point(end)}"
+        return path, elbow
+
+    if source_horizontal:
+        midpoint = (start[0] + end[0]) / 2
+        path = f"M{_point(start)}H{_number(midpoint)}V{_number(end[1])}H{_number(end[0])}"
+        return path, (midpoint, (start[1] + end[1]) / 2)
+
+    midpoint = (start[1] + end[1]) / 2
+    path = f"M{_point(start)}V{_number(midpoint)}H{_number(end[0])}V{_number(end[1])}"
+    return path, ((start[0] + end[0]) / 2, midpoint)
+
+
 def _step_path(edge: Edge, boxes: dict[str, Box]) -> tuple[str, tuple[float, float]]:
     """Leave a card through its side, turn once, and drop into the next card's edge.
 
@@ -1295,7 +1394,11 @@ def _default_anchors(source: Box, target: Box) -> tuple[str, str]:
 def _anchor(box: Box, name: str) -> tuple[float, float]:
     anchors = {
         "left": (box.x, box.center_y),
+        "left_top": (box.x, box.y + box.height / 3),
+        "left_bottom": (box.x, box.y + box.height * 2 / 3),
         "right": (box.right, box.center_y),
+        "right_top": (box.right, box.y + box.height / 3),
+        "right_bottom": (box.right, box.y + box.height * 2 / 3),
         "top": (box.center_x, box.y),
         "bottom": (box.center_x, box.bottom),
     }
@@ -1426,7 +1529,10 @@ def _icons_path() -> Path:
 def _style() -> str:
     return """<style>
   text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172033; }
+  symbol [stroke] { vector-effect: non-scaling-stroke; }
   .node rect { stroke-width: 2; }
+  .node-boundary rect { stroke-width: 2; stroke-dasharray: 8 8; }
+  .boundary-title { font-size: 16px; font-weight: 750; text-anchor: start; }
   .node-title { font-size: 20px; font-weight: 750; text-anchor: middle; }
   .node-title.icon-copy { text-anchor: start; }
   .node-subtitle { font-size: 16px; font-weight: 500; fill: #475569; text-anchor: middle; }

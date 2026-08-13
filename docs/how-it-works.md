@@ -29,11 +29,13 @@ fails with the canvas size that would. An ascending staircase reverses the slot
 order, not the reading order, so the first node still sits on the left.
 
 Each resolved card is a box with `x`, `y`, `width`, and `height`. Connectors use
-named anchors on those boxes. Cubic curves add two control points. Ring routes
-are arcs of the layout circle itself: the router walks the arc away from each
-card until it clears that card's box, then joins the two points with a single
-SVG `A` command, so every connector shares one curvature. Where the circle only
-grazes a corner - two cards straddling the bottom of a five-node ring, for
+named anchors on those boxes; standalone icons use their visible glyph bounds
+instead of transparent viewport padding. Orthogonal routes join anchors with
+horizontal and vertical segments, while cubic curves add two control points.
+Ring routes are arcs of the layout circle itself: the router walks the arc away
+from each card until it clears that card's box, then joins the two points with a
+single SVG `A` command, so every connector shares one curvature. Where the
+circle only grazes a corner - two cards straddling the bottom of a five-node ring, for
 instance - following it would sag underneath them, so that pair joins its facing
 sides on a tighter arc that rises off its chord by the same proportion a full
 ring slot does. Every connector still reads as part of one loop.

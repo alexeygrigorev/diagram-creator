@@ -36,7 +36,10 @@
       </symbol>
     <style>
       text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172033; }
+      symbol [stroke] { vector-effect: non-scaling-stroke; }
       .node rect { stroke-width: 2; }
+      .node-boundary rect { stroke-width: 2; stroke-dasharray: 8 8; }
+      .boundary-title { font-size: 16px; font-weight: 750; text-anchor: start; }
       .node-title { font-size: 20px; font-weight: 750; text-anchor: middle; }
       .node-title.icon-copy { text-anchor: start; }
       .node-subtitle { font-size: 16px; font-weight: 500; fill: #475569; text-anchor: middle; }
