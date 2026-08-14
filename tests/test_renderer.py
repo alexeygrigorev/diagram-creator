@@ -881,6 +881,44 @@ def test_staircase_connectors_are_one_elbow_repeated(direction, tmp_path):
     assert max(runs) == pytest.approx(min(runs), abs=0.01)
 
 
+def distance_to_card(point, card, size=(220, 90)):
+    """How far a connector endpoint sits from the nearest point of a card."""
+    x, y = point
+    left, top = card
+    width, height = size
+    return math.hypot(
+        max(left - x, 0.0, x - (left + width)),
+        max(top - y, 0.0, y - (top + height)),
+    )
+
+
+@pytest.mark.parametrize("direction", ["descending", "ascending"])
+def test_staircase_connectors_touch_the_cards_they_join(direction, tmp_path):
+    output = tmp_path / "stairs.svg"
+
+    render_diagram(staircase_spec(direction=direction), output)
+
+    svg = output.read_text()
+    cards = staircase_cards(svg)
+    elbows = STEP_EDGE.findall(svg)
+    assert len(elbows) == len(cards) - 1
+    for index, elbow in enumerate(elbows):
+        start_x, start_y, turn_x, end_y = (float(value) for value in elbow)
+        # Both ends land on a card outline, so no white shows between a
+        # connector and the cards it joins.
+        assert distance_to_card((start_x, start_y), cards[index]) == pytest.approx(0, abs=0.01)
+        assert distance_to_card((turn_x, end_y), cards[index + 1]) == pytest.approx(0, abs=0.01)
+    marker = re.search(
+        r'<marker id="arrow-gray" viewBox="0 0 ([\d.]+) [\d.]+" refX="([\d.]+)"', svg
+    )
+    assert marker is not None
+    tip, reference = (float(value) for value in marker.groups())
+    # The arrowhead hangs off the end of the path, positioned by its reference
+    # point. Keeping that point at or behind the tip drives the point into the
+    # card instead of stopping the arrow short of it.
+    assert reference <= tip
+
+
 def test_staircase_rejects_a_canvas_that_cannot_hold_the_cascade(tmp_path):
     spec = staircase_spec(700, 400, count=5)
 
