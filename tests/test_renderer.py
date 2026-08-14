@@ -678,16 +678,37 @@ def ring_arcs(svg):
     ]
 
 
-def test_ring_connectors_are_all_the_same_length(tmp_path):
-    # Every connector spans one shared angle centred in its slot, so equal
-    # arrows are structural - no card size can produce a ring of mixed lengths.
+def test_ring_connectors_all_curve_on_the_one_circle(tmp_path):
+    # Connectors stop at their own cards, so their lengths follow the angle each
+    # card happens to cover. What keeps them reading as one loop is the shared
+    # radius: every arc is a piece of the same circle.
     output = tmp_path / "loop.svg"
     for card in ((170, 140), (150, 150), (190, 130)):
         render_diagram(ring_spec(726, 673, card=card), output)
         arcs = ring_arcs(output.read_text())
-        chords = [math.hypot(a[3] - a[0], a[4] - a[1]) for a in arcs]
-        assert max(chords) - min(chords) < 0.5, card
         assert max(a[2] for a in arcs) - min(a[2] for a in arcs) < 0.01, card
+
+
+def ring_arc_standoff(svg, card):
+    """How far each arc end sits from the outline of the nearest card."""
+    width, height = card
+    boxes = [
+        (x, y, x + width, y + height)
+        for x, y in (map(float, n) for n in NODE_TRANSFORM.findall(svg))
+    ]
+
+    def off_card(point):
+        return min(
+            max(x0 - point[0], point[0] - x1, y0 - point[1], point[1] - y1, 0)
+            + max(min(point[0] - x0, x1 - point[0], point[1] - y0, y1 - point[1]), 0)
+            for x0, y0, x1, y1 in boxes
+        )
+
+    return [
+        off_card(point)
+        for start_x, start_y, _, end_x, end_y in ring_arcs(svg)
+        for point in ((start_x, start_y), (end_x, end_y))
+    ]
 
 
 def test_ring_connectors_reach_the_cards_they_join(tmp_path):
@@ -697,25 +718,24 @@ def test_ring_connectors_reach_the_cards_they_join(tmp_path):
     render_diagram(spec, output)
 
     svg = output.read_text()
-    arcs = ring_arcs(svg)
-    assert len(arcs) == 5
-    boxes = [
-        (x, y, x + 170, y + 140) for x, y in (map(float, n) for n in NODE_TRANSFORM.findall(svg))
-    ]
+    assert len(ring_arcs(svg)) == 5
+    # Both ends sit on the outline of the card they join, so an arrowhead never
+    # floats in the gutter.
+    assert ring_arc_standoff(svg, (170, 140)) == pytest.approx([0] * 10, abs=0.5)
 
-    def off_card(point):
-        """How far a point sits from the nearest card's outline."""
-        return min(
-            max(x0 - point[0], point[0] - x1, y0 - point[1], point[1] - y1, 0)
-            + max(min(point[0] - x0, x1 - point[0], point[1] - y0, y1 - point[1]), 0)
-            for x0, y0, x1, y1 in boxes
-        )
 
-    # One shared sweep means the ends needing least room stop a little short;
-    # the renderer bounds how far, so no connector visibly floats.
-    for start_x, start_y, _, end_x, end_y in arcs:
-        assert off_card((start_x, start_y)) <= 42
-        assert off_card((end_x, end_y)) <= 42
+@pytest.mark.parametrize("card", [(220, 55), (150, 150), (120, 200)])
+def test_ring_connectors_reach_cards_of_any_proportion(card, tmp_path):
+    # A flat card covers a wide angle at the sides of the circle and a narrow one
+    # at the top, so its connectors come out uneven. They still have to touch:
+    # ends that stop short are what reads as a broken loop.
+    output = tmp_path / "loop.svg"
+
+    render_diagram(ring_spec(1040, 1010, card=card), output)
+
+    svg = output.read_text()
+    assert len(ring_arcs(svg)) == 5
+    assert ring_arc_standoff(svg, card) == pytest.approx([0] * 10, abs=0.5)
 
 
 def test_block_icons_fill_a_square_card_better_than_inline(tmp_path):
@@ -756,12 +776,11 @@ def test_block_icons_fill_a_square_card_better_than_inline(tmp_path):
     assert content_height("block") / 165 > 0.5  # a square card is otherwise mostly empty
 
 
-def test_ring_rejects_a_card_its_connectors_cannot_reach(tmp_path):
-    # A very flat card covers a wide angle at the sides and a narrow one at the
-    # top, so one shared sweep leaves the narrow ends far short. The renderer
-    # refuses rather than shipping connectors that visibly float.
-    with pytest.raises(SpecError, match="short of its card"):
-        render_diagram(ring_spec(1040, 1010, card=(220, 55)), tmp_path / "loop.svg")
+def test_ring_still_rejects_cards_that_overlap(tmp_path):
+    # Card proportions no longer constrain a ring, but a circle too small to seat
+    # them does, and the error says which canvas would fit.
+    with pytest.raises(SpecError, match="cards overlap on this canvas"):
+        render_diagram(ring_spec(600, 600, card=(300, 280)), tmp_path / "loop.svg")
 
 
 def test_center_detail_sits_clear_of_the_annotation_circle(tmp_path):

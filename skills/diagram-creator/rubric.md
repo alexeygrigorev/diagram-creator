@@ -70,35 +70,38 @@ right and every riser the same distance down, and no two steps share a row.
 Check: the spread of consecutive `x` advances and of consecutive `y` advances,
 both under 0.5 px; every riser at least the card height.
 
-### A2. Connectors are all the same length - AUTOMATABLE, renderer-guaranteed
+### A2. Connectors all curve on one circle - AUTOMATABLE, renderer-guaranteed
 
-In a loop, every arrow between one node and the next is identical: same radius,
-same length, same curvature. Different lengths are the single most visible way a
-cycle stops reading as one circle, and the eye compares length before anything
-else.
+In a loop, every arrow between one node and the next is a piece of the same
+circle: same radius, same curvature, same direction of travel. Shared curvature
+is what makes a cycle read as one shape.
 
-This is structural in the renderer, not a tolerance. Every connector spans one
-shared angle, centred in its slot, so no card size can produce a ring of mixed
-lengths. Chord spread measures 0.002 px across a five-node loop.
+This is structural in the renderer. Radius spread measures 0.00 px across a
+five-node loop.
 
-Check: chord length and arc radius of every connector. Chord spread under 0.5 px,
-radius spread under 0.01 px. Anything larger means the shared sweep has been
-bypassed and is a bug, not a tuning problem.
+Lengths are not equal, and should not be forced to be. A rectangle covers a
+different angle at each slot on the circle unless it is exactly square, so
+connectors that touch their cards necessarily differ in length - about 1.3x
+between longest and shortest on a near-square card. See A3 for why that is the
+right side of the trade.
 
-### A3. Connectors reach the cards they join - AUTOMATABLE, renderer-enforced
+Check: arc radius of every connector, spread under 0.01 px. Chord spread follows
+the card proportions and is not a defect on its own; a ratio past about 1.5x
+means the cards are too far from square to sit on a ring.
 
-A connector that stops visibly short reads as broken.
+### A3. Connectors reach the cards they join - AUTOMATABLE, renderer-guaranteed
 
-One shared sweep and exact contact at both ends cannot both hold. A rectangle
-covers a different angle at each slot on the circle unless it is exactly square,
-so a sweep sized to clear the widest case leaves the narrowest ends a little
-short. Measured floor is about 22 px for any card that can hold content, and
-typical shapes land in the thirties. Equal length wins - a 30 px gap is far less
-visible than one arrow half the length of its neighbour - and the renderer bounds
-the gap at 42 px, rejecting anything worse with the card height that closes it.
+A connector that stops visibly short reads as broken. This is the failure the eye
+catches first, ahead of uneven lengths, because a floating arrowhead looks like a
+bug rather than a proportion.
 
-Check: distance from each endpoint to the nearest card outline, at most 42 px.
-The error names the card height that minimises it.
+Each end stops where the circle actually crosses its own card, so contact is
+exact at both ends whatever the card proportions. The cost is the length
+variation in A2, which the eye forgives.
+
+Check: distance from each endpoint to the nearest card outline, 0 px within half
+a pixel. Anything larger means the per-card exit has been bypassed and is a bug,
+not a tuning problem.
 
 ### A4. Nodes are clearly separated - AUTOMATABLE
 
@@ -221,8 +224,9 @@ content actually occupies the card rather than floating in the middle of it.
 
 Vertical emptiness is the one that slips through, because centering makes a
 near-empty card look deliberate. It shows up when something else forces the card
-size - a ring needs square cards for equal connectors (2), so a card holding one
-short row ends up a third full and reads as a box with a label lost inside it.
+size - a ring wants squarish cards to keep its connectors even (2), so a card
+holding one short row ends up a third full and reads as a box with a label lost
+inside it.
 
 Check: content height over card height, at least 50 percent. And for each card,
 the widest empty margin beside the content - more than about a quarter of the

@@ -245,6 +245,12 @@ five nodes; more nodes need more room. Rendering fails with a suggested canvas
 size when the cards would overlap, so start from that number when a ring is
 rejected. Set `layout.margin` to change the 40 px gap kept around the cards.
 
+Every connector touches the two cards it joins, and every one is an arc of the
+same circle. Their lengths are not equal: a card covers a different angle at the
+side of the circle than at the top unless it is square, so the connectors between
+the flatter pairs come out shorter. Keep cards near square when that variation
+bothers you - it is the card proportions talking, not a layout bug.
+
 ```json
 {
   "canvas": {"width": 940, "height": 800, "background": "#ffffff"},

@@ -50,11 +50,11 @@
   </defs>
   <rect width="930" height="860" fill="#ffffff"/>
 
-  <path class="edge" d="M603.69 182.17A310.18 310.18 0 0 1 686.01 241.98" stroke="#64748b" marker-end="url(#arrow-gray)"/>
-  <path class="edge" d="M771.73 505.78A310.18 310.18 0 0 1 740.28 602.56" stroke="#64748b" marker-end="url(#arrow-gray)"/>
-  <path class="edge" d="M515.88 765.6A310.18 310.18 0 0 1 414.12 765.6" stroke="#64748b" marker-end="url(#arrow-gray)"/>
-  <path class="edge" d="M189.72 602.56A310.18 310.18 0 0 1 158.27 505.78" stroke="#64748b" marker-end="url(#arrow-gray)"/>
-  <path class="edge" d="M243.99 241.98A310.18 310.18 0 0 1 326.31 182.17" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M595 177.99A310.18 310.18 0 0 1 698.79 255.77" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M774.94 471.77A310.18 310.18 0 0 1 740.28 602.56" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M517.32 765.36A310.18 310.18 0 0 1 412.68 765.36" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M189.72 602.56A310.18 310.18 0 0 1 155.06 471.77" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <path class="edge" d="M231.21 255.77A310.18 310.18 0 0 1 335 177.99" stroke="#64748b" marker-end="url(#arrow-gray)"/>
 
   <circle class="center-annotation" cx="465" cy="459.62" r="68"/>
   <text class="center-title" x="465" y="453.95" font-size="16">CURATION</text>
