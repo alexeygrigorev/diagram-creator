@@ -15,9 +15,11 @@ LAYOUTS = {"horizontal", "manual", "grid", "ring", "staircase"}
 ROUTES = {"forward", "below", "straight", "curve", "orthogonal", "ring", "step"}
 STAIRCASE_DIRECTIONS = {"descending", "ascending"}
 ANCHORS = {"left", "left_top", "left_bottom", "right", "right_top", "right_bottom", "top", "bottom"}
-NODE_VARIANTS = {"card", "icon", "plain", "boundary"}
+NODE_VARIANTS = {"card", "icon", "plain", "boundary", "attached"}
+ATTACH_SIDES = {"left", "right", "top", "bottom"}
 ICON_POSITIONS = {"inline", "block"}
 ICONS = {
+    "alert",
     "aws",
     "github",
     "search",
@@ -51,6 +53,8 @@ ICONS = {
     "environment",
     "registry",
     "collector",
+    "lambda",
+    "queue",
 }
 
 
@@ -90,6 +94,9 @@ class Node:
     variant: str = "card"
     show_label: bool = True
     icon_size: float | None = None
+    attach_to: str | None = None
+    attach_side: str = "right"
+    attach_overlap: float = 20
     x: float | None = None
     y: float | None = None
     width: float | None = None
@@ -158,6 +165,18 @@ class DiagramSpec:
 
         edges = tuple(_parse_edge(item) for item in raw_edges)
         known_ids = set(node_ids)
+        node_by_id = {node.id: node for node in nodes}
+        for node in nodes:
+            if node.variant != "attached":
+                continue
+            if node.attach_to not in known_ids:
+                raise SpecError(
+                    f"attached node '{node.id}' references unknown parent node: {node.attach_to}"
+                )
+            if node.attach_to == node.id:
+                raise SpecError(f"attached node '{node.id}' cannot attach to itself")
+            if node_by_id[node.attach_to].variant == "attached":
+                raise SpecError("attached nodes cannot attach to another attached node")
         for edge in edges:
             if edge.source not in known_ids:
                 raise SpecError(f"edge references unknown source node: {edge.source}")
@@ -170,8 +189,10 @@ class DiagramSpec:
         layout = _parse_layout(data.get("layout", {}))
         if layout.type == "manual":
             for node in nodes:
-                if node.x is None or node.y is None:
+                if node.variant != "attached" and (node.x is None or node.y is None):
                     raise SpecError("manual layout requires x and y for every node")
+        elif any(node.variant == "attached" for node in nodes):
+            raise SpecError("attached nodes currently require the manual layout")
         if layout.type == "grid":
             cells: set[tuple[int, int]] = set()
             for node in nodes:
@@ -306,6 +327,9 @@ def _parse_node(data: Any) -> Node:
     variant = data.get("variant", "card")
     show_label = data.get("show_label", True)
     icon_size = _optional_number(data, "icon_size", f"node '{node_id}'")
+    attach_to = data.get("attach_to")
+    attach_side = data.get("attach_side", "right")
+    attach_overlap = data.get("attach_overlap", 20)
     if not isinstance(subtitle, str):
         raise SpecError(f"node '{node_id}' subtitle must be a string")
     if color not in COLORS:
@@ -320,6 +344,18 @@ def _parse_node(data: Any) -> Node:
         )
     if variant == "icon" and icon is None:
         raise SpecError(f"node '{node_id}' with icon variant requires an icon")
+    if variant == "attached" and not isinstance(attach_to, str):
+        raise SpecError(f"attached node '{node_id}' requires attach_to")
+    if attach_side not in ATTACH_SIDES:
+        raise SpecError(
+            f"node '{node_id}' attach_side must be one of: {', '.join(sorted(ATTACH_SIDES))}"
+        )
+    if (
+        not isinstance(attach_overlap, (int, float))
+        or isinstance(attach_overlap, bool)
+        or attach_overlap < 0
+    ):
+        raise SpecError(f"node '{node_id}' attach_overlap must be a non-negative number")
     if not isinstance(show_label, bool):
         raise SpecError(f"node '{node_id}' show_label must be a boolean")
     if icon_size is not None and icon_size <= 0:
@@ -340,6 +376,9 @@ def _parse_node(data: Any) -> Node:
         variant=variant,
         show_label=show_label,
         icon_size=icon_size,
+        attach_to=attach_to,
+        attach_side=attach_side,
+        attach_overlap=float(attach_overlap),
         x=_optional_number(data, "x", f"node '{node_id}'"),
         y=_optional_number(data, "y", f"node '{node_id}'"),
         width=width,

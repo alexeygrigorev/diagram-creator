@@ -90,6 +90,7 @@ TITLE_GAP = 10
 # evenly, so centring an icon-and-label group on the box leaves the group looking
 # off-centre and the icon-to-text gap different on every card.
 ICON_INK = {
+    "alert": (0.125, 0.875),
     "api": (0.083, 0.917),
     "aws": (0.125, 0.875),
     "browser": (0.0, 1.0),
@@ -101,6 +102,7 @@ ICON_INK = {
     "environment": (0.083, 0.917),
     "github": (0.025, 0.975),
     "issue": (0.083, 0.917),
+    "lambda": (0.25, 0.75),
     "message": (0.125, 0.875),
     "number-1": (0.042, 0.958),
     "number-2": (0.042, 0.958),
@@ -108,6 +110,7 @@ ICON_INK = {
     "openai": (0.0, 1.0),
     "observability": (0.0, 1.0),
     "pull-request": (0.108, 0.892),
+    "queue": (0.027, 0.973),
     "rank-fusion": (0.083, 0.917),
     "registry": (0.083, 0.917),
     "robot": (0.062, 0.938),
@@ -300,16 +303,22 @@ CHARACTER_EM = {
 FALLBACK_EM = {weight: sum(table.values()) / len(table) for weight, table in CHARACTER_EM.items()}
 DEFAULT_STANDALONE_ICON_SIZE = 56
 STANDALONE_ICON_DIMENSIONS = {
+    "alert": (56, 56),
     "user": (56, 56),
     "browser": (160, 112),
     "database": (84, 84),
+    "lambda": (56, 56),
+    "queue": (112, 56),
     "volume": (84, 84),
 }
 # Visible ink bounds inside standalone icon viewports. Connector anchors use
 # these instead of the transparent SVG box so arrows visibly touch the glyph.
 STANDALONE_CONNECTOR_INK = {
+    "alert": (0.125, 0.125, 0.875, 0.875),
     "browser": (0.0, 0.0, 1.0, 1.0),
     "database": (0.125, 1 / 24, 0.875, 23 / 24),
+    "lambda": (0.25, 0.125, 0.75, 0.875),
+    "queue": (0.027, 0.286, 0.973, 0.714),
     "user": (0.125, 0.0, 0.875, 1.0),
     "volume": (1 / 12, 0.125, 11 / 12, 0.875),
 }
@@ -423,7 +432,12 @@ def render_svg_text(
             spec.layout.fixed_icon_axis,
         )
         for node in spec.nodes
-        if node.variant != "boundary"
+        if node.variant not in {"boundary", "attached"}
+    )
+    parts.extend(
+        _draw_attached_node(node, boxes[node.id], spec.layout.font_scale)
+        for node in spec.nodes
+        if node.variant == "attached"
     )
     parts.append("</svg>\n")
     return "\n".join(parts)
@@ -433,7 +447,7 @@ def _layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
     if spec.layout.type == "manual":
         default_width = spec.layout.card_width or 220
         default_height = spec.layout.card_height or 100
-        return {
+        boxes = {
             node.id: Box(
                 node.x or 0,
                 node.y or 0,
@@ -451,7 +465,29 @@ def _layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
                 ),
             )
             for node in spec.nodes
+            if node.variant != "attached"
         }
+        for node in spec.nodes:
+            if node.variant != "attached":
+                continue
+            parent = boxes[node.attach_to or ""]
+            node_width = node.width or 92
+            node_height = node.height or 54
+            overlap = node.attach_overlap
+            if node.attach_side == "left":
+                x = parent.x - node_width + overlap
+                y = parent.center_y - node_height / 2
+            elif node.attach_side == "top":
+                x = parent.center_x - node_width / 2
+                y = parent.y - node_height + overlap
+            elif node.attach_side == "bottom":
+                x = parent.center_x - node_width / 2
+                y = parent.bottom - overlap
+            else:
+                x = parent.right - overlap
+                y = parent.center_y - node_height / 2
+            boxes[node.id] = Box(x, y, node_width, node_height)
+        return boxes
     if spec.layout.type == "ring":
         return _ring_layout(spec, width, height)
     if spec.layout.type == "grid":
@@ -961,6 +997,25 @@ def _draw_boundary_node(node: Node, box: Box) -> str:
             f'    <rect width="{_number(box.width)}" height="{_number(box.height)}" '
             f'rx="22" fill="none" stroke="{palette.stroke}"/>',
             f'    <text class="boundary-title" x="20" y="31">{escape(node.title)}</text>',
+            "  </g>",
+        ]
+    )
+
+
+def _draw_attached_node(node: Node, box: Box, scale: float = 1.0) -> str:
+    """Draw a small sidecar badge that overlaps the edge of its parent card."""
+    palette = PALETTES[node.color]
+    title_size = round(16 * scale)
+    title_y = box.height / 2 + title_size * CAP_HALF
+    return "\n".join(
+        [
+            f'  <g class="node-attached node-{escape(node.color)}" '
+            f'transform="translate({_number(box.x)} {_number(box.y)})" filter="url(#shadow)">',
+            f'    <rect width="{_number(box.width)}" height="{_number(box.height)}" '
+            f'rx="14" fill="{palette.fill}" stroke="{palette.stroke}"/>',
+            f'    <text class="attached-title" x="{_number(box.width / 2)}" '
+            f'y="{_number(title_y)}" font-size="{title_size}" font-weight="750" '
+            f'text-anchor="middle">{escape(node.title)}</text>',
             "  </g>",
         ]
     )

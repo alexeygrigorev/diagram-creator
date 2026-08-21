@@ -310,6 +310,43 @@ def test_parses_a_custom_standalone_icon_size():
     assert spec.nodes[0].icon_size == 112
 
 
+def test_parses_an_attached_node_without_manual_coordinates():
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "manual"},
+            "nodes": [
+                {"id": "app", "title": "Development", "x": 40, "y": 50},
+                {
+                    "id": "otel",
+                    "title": "OTel",
+                    "variant": "attached",
+                    "attach_to": "app",
+                    "attach_side": "right",
+                },
+            ],
+            "edges": [],
+        }
+    )
+
+    assert spec.nodes[1].attach_to == "app"
+    assert spec.nodes[1].attach_side == "right"
+    assert spec.nodes[1].attach_overlap == 20
+
+
+def test_rejects_an_attached_node_with_an_unknown_parent():
+    data = {
+        "layout": {"type": "manual"},
+        "nodes": [
+            {"id": "app", "title": "Development", "x": 40, "y": 50},
+            {"id": "otel", "title": "OTel", "variant": "attached", "attach_to": "missing"},
+        ],
+        "edges": [],
+    }
+
+    with pytest.raises(SpecError, match="unknown parent node"):
+        DiagramSpec.from_dict(data)
+
+
 def test_parses_row_dividers_for_a_grid():
     spec = DiagramSpec.from_dict(
         {

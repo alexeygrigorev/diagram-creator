@@ -22,13 +22,21 @@ Available icons are `aws`, `github`, `search`, `shield`, `container`,
 `database`, `volume`, `openai`, `issue`, `document`, `user`, `browser`,
 `websocket`, `api`, `settings`, `pull-request`, `rank-fusion`, `message`,
 `video`, `sparkles`, `check`, `warning`, `close`, `mention`, `number-1`,
-`number-2`, `number-3`, `workflow`, `robot`, `observability`, `environment`, `registry`, and `collector`.
+`number-2`, `number-3`, `workflow`, `robot`, `observability`, `environment`,
+`registry`, `collector`, `alert`, `queue`, and `lambda`.
 Use the numbered icons to mark ordered stages instead of writing the step
 number into the title.
 
 Use `"variant": "boundary"` in a manual layout for a dashed infrastructure or
 runtime boundary behind related nodes. Give it explicit `x`, `y`, `width`, and
 `height`; its title appears in the top-left corner.
+
+Use `"variant": "attached"` in a manual layout for a small sidecar or agent
+that visually belongs to a larger card. Set `attach_to` to the parent node ID;
+`attach_side` can be `left`, `right`, `top`, or `bottom`, and defaults to
+`right`. The badge overlaps the parent by 20 px by default; customize that with
+`attach_overlap`. Its default size is 92×54 px, and edges connected to it start
+at the badge rather than the parent card.
 
 If a diagram needs an icon that is not available, create it instead of using
 an unrelated substitute. Add it to the renderer's icon library and accepted
@@ -46,8 +54,8 @@ and no card. Use this for actors and simple endpoints when a full card adds
 unnecessary visual weight. Set `"show_label": false` when the icon should have
 no visible label; keep `title` because it is still used for accessibility. Use
 `"icon_size"` for an explicit override. Prefer the reusable standalone sizes:
-56×56 px for `user`, 160×112 px for `browser`, and 84×84 px for `database` and
-`volume`.
+56×56 px for `user`, 160×112 px for `browser`, 84×84 px for `database` and
+`volume`, and 112×56 px for the horizontal `queue` tube.
 The renderer applies these automatically when no override is present.
 Connector anchors follow the standalone glyph's visible ink rather than its
 transparent SVG viewport, so arrows touch database, volume, browser, and user

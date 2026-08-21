@@ -115,6 +115,43 @@ def test_renders_a_png_at_the_requested_size(tmp_path):
         assert image.mode == "RGB"
 
 
+def test_attached_node_overlaps_parent_and_connects_from_its_outer_edge(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 300},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {"id": "app", "title": "Development", "x": 60, "y": 100},
+                {
+                    "id": "otel",
+                    "title": "OTel",
+                    "variant": "attached",
+                    "attach_to": "app",
+                    "color": "purple",
+                },
+                {"id": "collector", "title": "Collector", "x": 420, "y": 100},
+            ],
+            "edges": [
+                {
+                    "from": "otel",
+                    "to": "collector",
+                    "route": "straight",
+                    "from_anchor": "right",
+                    "to_anchor": "left",
+                }
+            ],
+        }
+    )
+    output = tmp_path / "attached.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'class="node-attached node-purple" transform="translate(260 123)"' in svg
+    assert '<path class="edge" d="M352 150L420 150"' in svg
+    assert svg.index('class="edge"') < svg.index('class="node-attached')
+
+
 def test_cli_renders_a_json_spec(tmp_path):
     source = tmp_path / "diagram.json"
     output = tmp_path / "diagram.png"
@@ -399,6 +436,81 @@ def test_renders_new_symbols_with_normalized_strokes(tmp_path):
     assert '<symbol id="icon-shield"' in svg
     assert '<symbol id="icon-volume"' in svg
     assert "symbol [stroke] { vector-effect: non-scaling-stroke; }" in svg
+
+
+def test_renders_incident_trigger_symbols(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "alert", "title": "Alert", "icon": "alert"},
+                {"id": "topic", "title": "SNS topic", "icon": "queue"},
+                {"id": "function", "title": "Lambda", "icon": "lambda"},
+            ],
+            "edges": [
+                {"from": "alert", "to": "topic"},
+                {"from": "topic", "to": "function"},
+            ],
+        }
+    )
+    output = tmp_path / "incident-trigger-icons.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert '<symbol id="icon-alert"' in svg
+    assert '<symbol id="icon-queue"' in svg
+    assert '<symbol id="icon-lambda"' in svg
+    assert 'href="#icon-alert"' in svg
+    assert 'href="#icon-queue"' in svg
+    assert 'href="#icon-lambda"' in svg
+
+
+def test_uses_standalone_incident_trigger_symbols_and_visible_ink(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 280},
+            "layout": {"type": "manual"},
+            "nodes": [
+                {
+                    "id": "alert",
+                    "title": "Alert",
+                    "icon": "alert",
+                    "variant": "icon",
+                    "x": 40,
+                    "y": 80,
+                },
+                {
+                    "id": "topic",
+                    "title": "SNS topic",
+                    "icon": "queue",
+                    "variant": "icon",
+                    "x": 280,
+                    "y": 80,
+                },
+                {
+                    "id": "function",
+                    "title": "Lambda",
+                    "icon": "lambda",
+                    "variant": "icon",
+                    "x": 540,
+                    "y": 80,
+                },
+            ],
+            "edges": [
+                {"from": "alert", "to": "topic", "route": "straight"},
+                {"from": "topic", "to": "function", "route": "straight"},
+            ],
+        }
+    )
+    output = tmp_path / "standalone-incident-trigger-icons.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'href="#icon-alert" x="0" y="0" width="56" height="56"' in svg
+    assert 'href="#icon-queue" x="0" y="0" width="112" height="56"' in svg
+    assert 'href="#icon-lambda" x="0" y="0" width="56" height="56"' in svg
+    assert 'd="M89 108L283.02 108"' in svg
 
 
 def test_renders_boundary_behind_edges_and_nodes(tmp_path):
