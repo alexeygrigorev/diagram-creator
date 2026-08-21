@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Sequence
 
 from diagram_creator.__version__ import __version__
-from diagram_creator.renderer import render_diagram
+from diagram_creator.renderer import render_diagram, spec_advisories
 from diagram_creator.spec import SpecError, load_spec
 
 
@@ -26,6 +27,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         spec = load_spec(args.input)
         output = render_diagram(spec, args.output, width=args.width, height=args.height)
+        for note in spec_advisories(spec, width=args.width, height=args.height):
+            print(f"note: {note}", file=sys.stderr)
     except (OSError, SpecError) as exc:
         parser.error(str(exc))
     print(output)

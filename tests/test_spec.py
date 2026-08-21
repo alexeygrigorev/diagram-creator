@@ -467,6 +467,52 @@ def test_parses_row_dividers_for_a_manual_layout():
     assert [divider.after_row for divider in spec.dividers] == [0]
 
 
+def test_parses_node_dividers_without_rows_in_a_manual_layout():
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "manual"},
+            "nodes": [
+                {"id": "first", "title": "First", "x": 20, "y": 20},
+                {"id": "second", "title": "Second", "x": 20, "y": 180},
+            ],
+            "edges": [],
+            "dividers": [{"after_node": "first"}],
+        }
+    )
+
+    assert [divider.after_node for divider in spec.dividers] == ["first"]
+
+
+def test_rejects_a_divider_naming_both_row_and_node():
+    data = {
+        "layout": {"type": "manual"},
+        "nodes": [
+            {"id": "first", "title": "First", "x": 20, "y": 20, "row": 0},
+            {"id": "second", "title": "Second", "x": 20, "y": 180, "row": 1},
+        ],
+        "edges": [],
+        "dividers": [{"after_row": 0, "after_node": "first"}],
+    }
+
+    with pytest.raises(SpecError, match="exactly one of after_row or after_node"):
+        DiagramSpec.from_dict(data)
+
+
+def test_rejects_a_divider_after_an_unknown_node():
+    data = {
+        "layout": {"type": "manual"},
+        "nodes": [
+            {"id": "first", "title": "First", "x": 20, "y": 20},
+            {"id": "second", "title": "Second", "x": 20, "y": 180},
+        ],
+        "edges": [],
+        "dividers": [{"after_node": "missing"}],
+    }
+
+    with pytest.raises(SpecError, match="is not a node id"):
+        DiagramSpec.from_dict(data)
+
+
 def test_rejects_a_divider_below_the_last_row():
     data = {
         "layout": {"type": "grid"},

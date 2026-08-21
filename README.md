@@ -26,6 +26,11 @@ uv run diagram-creator input.json output.png
 Canvas dimensions belong in JSON. `--width` and `--height` can override them
 for a one-off render.
 
+The CLI prints `note:` advisories on stderr when a spec renders but will read
+worse than it could: a manual-layout canvas visibly larger than its content, or
+a missing `description` (which becomes the SVG `<desc>` and the article's alt
+text). Advisories never fail the render; fix the spec and rerun.
+
 ## Examples
 
 Each image below is generated from the linked JSON source.
@@ -175,33 +180,33 @@ title size and one subtitle size - the largest that fits every card
 undistorted - so the type stays consistent and every glyph keeps its natural
 width.
 
-Set `"fixed_icon_axis": true` on a layout when comparable cards should use one
+Grid and manual layouts default to a fixed icon axis: comparable cards use one
 shared icon column and one shared title column instead of centering each
-icon-title pair independently.
+icon-title pair independently. Set `"fixed_icon_axis": false` to restore
+per-card optical centering, or `true` to opt an automatic layout in.
 
 Manual layouts still use reusable cards and icons—the JSON controls placement,
 not raw SVG markup:
 
 ```json
 {
-  "canvas": {"width": 900, "height": 500},
+  "canvas": {"width": 940, "height": 280},
   "layout": {"type": "manual", "card_width": 220, "card_height": 100},
   "nodes": [
-    {"id": "source", "title": "Sources", "x": 40, "y": 60, "icon": "document"},
-    {"id": "index", "title": "Build index", "x": 340, "y": 280, "icon": "settings"}
+    {"id": "source", "title": "Sources", "x": 40, "y": 90, "icon": "document"},
+    {"id": "index", "title": "Build index", "x": 360, "y": 90, "icon": "settings"},
+    {"id": "deploy", "title": "Deploy", "x": 680, "y": 90, "icon": "check"}
   ],
   "edges": [
-    {
-      "from": "source",
-      "to": "index",
-      "route": "curve",
-      "from_anchor": "right",
-      "to_anchor": "top",
-      "controls": [[300, 110], [450, 190]]
-    }
+    {"from": "source", "to": "index"},
+    {"from": "index", "to": "deploy"}
   ]
 }
 ```
+
+Straight arrows are the default; `orthogonal` draws a deliberate 90-degree
+elbow between offset cards. `curve` with explicit `controls` exists for the
+rare relationship a straight or orthogonal route cannot express.
 
 Use `"variant": "icon"` for a standalone icon with its `title` underneath and
 no surrounding card. Add `"show_label": false` when the icon should appear
@@ -218,12 +223,20 @@ shadow, so it reads as a label rather than a component. A plain node with an
 icon left-aligns its subtitle on the title axis because there is no card to
 center against.
 
-Add `"dividers"` to a grid or row-labelled manual diagram to separate rows with
-a dashed rule. Each entry takes `after_row`, and the rule is drawn halfway
-between that row and the one below it across the full layout width:
+Add `"dividers"` to a grid or manual diagram to separate rows with a dashed
+rule. Each entry takes `after_row` (which requires `row` on every node), and
+the rule is drawn halfway between that row and the one below it across the
+full layout width:
 
 ```json
 "dividers": [{"after_row": 0}, {"after_row": 1}]
+```
+
+In a manual layout, `after_node` draws the rule below one named node instead,
+so coordinate-placed nodes do not need bookkeeping rows:
+
+```json
+"dividers": [{"after_node": "before_state"}]
 ```
 
 ### Components and tokens

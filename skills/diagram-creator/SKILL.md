@@ -9,6 +9,72 @@ Create a JSON source first, render SVG while iterating, and render PNG only when
 publishing. Keep the JSON beside the generated asset or in the project’s
 diagram-source directory so later changes do not require hand-editing SVG.
 
+## Design the figure before the JSON
+
+Every figure that shipped without rework started from a one-sentence brief;
+every figure that skipped this step was rebuilt from scratch. Write the brief
+first: the `title`, plus a `description` stating the one thing the figure
+teaches that prose cannot ("dashboards do not generate alerts", "the agent does
+not fix production directly"). The description becomes the SVG `<desc>` and the
+article's alt text, and writing it first is what exposes a figure with no job.
+
+Pick the shape from the relationship, not from paragraph order:
+
+- A left-to-right **chain** only when each stage genuinely hands work to the
+  next. A chain of boxes that restates the surrounding text in order is an
+  automatic reject, and replacing it with a busier non-linear layout is not
+  the fix - the fix is finding the relationship worth drawing.
+- A **fork** for one decision: one entry path, one fork, labelled branches,
+  zero crossings.
+- **Parallel lanes** for an automatic path above a manual path.
+- A **stack with no edges** for peers and layers. Peers are not a sequence:
+  if the items do not causally produce each other, do not draw arrows between
+  them. Let position carry the relationship - a wide foundation card below,
+  peer cards in a row, a cap above - and use eyebrows (`START HERE`, `LAST`)
+  as the reading-order cue.
+- **Staged rows with dividers** for consecutive snapshots of one system, or
+  **two whole figures with identical geometry** for a before/after pair - copy
+  the accepted figure's coordinates verbatim and change only what changed.
+- **Specimen cards** when the subject is data: `42 requests/s` teaches what
+  "Rates and counts" cannot.
+
+Budget five to seven nodes. Nodes that never survive review: terminal outcome
+nodes ("Job ends", "Record the incident"), abstraction nodes that stand for a
+set - name the three concrete things instead - and policy or process statements
+with no visual referent. If the caption sentence reads fine without a node,
+cut the node. The same test kills most labels: arrow annotations, subtitles
+that restate their title, units, and provenance notes.
+
+Give the figure one or two star cards and demote everything else. Plumbing a
+reader already understands (an alert, a queue, a trigger function) becomes a
+standalone `"variant": "icon"` glyph, not a full card with a subtitle. Gray is
+for inert or not-yet-real elements; at most one red node per figure, for
+alerts. De-emphasising the peers is what makes the star readable.
+
+Derive the edge list from the description sentence: every relationship the
+caption asserts gets exactly one edge, and no edge exists that the caption
+does not assert. Adjacency is not a connection - a relationship implied by
+geometry but never drawn is the most common missing edge. The reverse failure
+is drawing arrows because nodes are near each other.
+
+Writing `"controls": [[x, y], [x, y]]` means the layout has already lost:
+hand-tuned curves are the signature of a shape the diagram cannot support.
+Step back to the shape menu instead of tuning the curve.
+
+Across an article, one concept keeps one name, one icon, one shape, and one
+color in every figure. When extending an accepted figure, reuse its node
+coordinates unchanged and append; do not re-layout what the reader has
+already learned.
+
+When a figure is rejected, diagnose before restructuring: "bad" means either
+*adds no insight* (a content problem - redesign the shape) or *not aligned,
+not straight, uneven* (a geometry problem - fix coordinates and change nothing
+else). Restructuring an aligned-but-plain figure and polishing an
+insightful-but-crooked one are opposite fixes, and applying the wrong one
+loses accepted work. For a content redesign, sketch two or three genuinely
+distinct concepts cheaply first - ASCII inline is enough - and confirm the
+direction before rendering.
+
 Use `horizontal` for one row, `grid` for deliberate rows and columns, `ring`
 for a circular loop of three or more stages, `staircase` for a sequence that
 only moves forward, and `manual` for free-form branches and mixed positions.
@@ -85,9 +151,11 @@ px. Use them together when visual form teaches a distinction more clearly than
 parallel prose cards.
 
 In a grid or row-labelled manual diagram, use `"dividers": [{"after_row": 0}]` to separate rows with a
-dashed rule drawn halfway between that row and the one below. Prefer a divider
-over a connector when consecutive rows are separate snapshots of one system
-rather than steps that hand work to each other.
+dashed rule drawn halfway between that row and the one below. In a manual
+layout, `"dividers": [{"after_node": "before_state"}]` draws the rule below one
+named node instead, so coordinate-placed nodes need no bookkeeping `row`
+fields. Prefer a divider over a connector when consecutive rows are separate
+snapshots of one system rather than steps that hand work to each other.
 
 ## Design system
 
@@ -104,6 +172,32 @@ rows and columns over independently positioned elements.
 - Route connectors through the center of the gutters. Equal relationships
   should have equal arrow lengths.
 - Increase the canvas before compressing cards or their contents.
+
+House numbers that recur across every accepted article figure:
+
+- Cards are 220×100. Inside a boundary holding three cards, narrow all three
+  to 210 so the boundary keeps 40 px gaps. Compact resource rows (three small
+  cards inside an access boundary) are 150×70. Stacked store cards shorten to
+  240×80–90. A full-width baseline or cap card (spanning the peers above or
+  below it) is deliberate meaning, not a defect - but only one per figure.
+- Canvas dimensions are multiples of 10. A four-to-seven-node figure lands at
+  940–1110 wide. Size the canvas from the finished content: the node bounding
+  box plus roughly 40 px of margin on every side, symmetric on both axes.
+  Content should fill 60–90% of the canvas. The CLI prints a `note:` on stderr
+  when a manual layout leaves dead margin - fix the spec, do not ignore it.
+- Standalone icons sitting on a card row: place a 56 px glyph at the row's
+  `y + 22` so its center matches a 100 px card's center. The label prints
+  below the glyph, so rows of icons end lower than rows of cards.
+- Subtitles are one verb phrase, at most ~30 characters. Use `·` to fold
+  management context into a boundary title (`AWS EC2 instance ·
+  CloudFormation-managed`); reserve `•`-separated lists for a single wide
+  summary card.
+- Edge labels are rare - about one edge in six - at most 16 characters, and
+  only for what direction alone cannot say: a trigger (`Manual promotion`), a
+  protocol (`HTTPS / WSS`), an artifact (`Version tag`), or a fork condition
+  (`Bug reproduced`). Everything else is noise on the arrow.
+- Eyebrows have two jobs: a category stamp (`CONTAINER`) or a reading-order
+  cue (`START HERE`, `LAST`). Do not use them as a second subtitle.
 
 Use these default tokens for article diagrams. Scale them together when the
 canvas or typography changes.
@@ -228,8 +322,9 @@ component:
 
 - Fix one icon axis and one text axis for every comparable card. Never move an
   icon to compensate for a shorter or longer label.
-- Set `"fixed_icon_axis": true` on the layout when inline icons and titles
-  should share those axes across every card in the diagram.
+- Grid and manual layouts share those axes by default; set
+  `"fixed_icon_axis": false` only when a lone card should optically center its
+  icon-title pair, and `true` to opt an automatic layout in.
 - Use a 24–28 px icon viewport. Center it vertically against the full title and
   subtitle block.
 - Left-align both title and subtitle on the same text axis when labels vary in
@@ -251,9 +346,13 @@ Do not reserve an empty icon column. Use the same typography, line spacing,
 padding, border, and corner tokens as icon-bearing peers so the visual weight
 stays consistent.
 
-Use semantic colors consistently within one diagram: blue for sources, purple
-for conversations and integrations, amber for processing, green for datasets
-and deployed services, red for failures, and gray for neutral structure. Use a
+Use semantic colors consistently within one diagram and across an article:
+blue for human actors, sources, and environments; purple for the pipeline,
+frontend sessions, and integrations; amber for build steps and backend
+processing; green for persistence, production, and success; red for alerts
+only, at most one red node per figure; gray for inert or not-yet-real
+elements. Color an edge to match the domain it enters (green into the
+database, purple into the pipeline); leave structural edges gray. Use a
 light tint for fills, a saturated hue for borders/icons, `#172033` for primary
 text, `#64748b` for secondary text and connectors, and one subtle shadow for
 all cards.
@@ -428,13 +527,18 @@ same command to refresh PNGs after editing their retained SVG sources.
 ## Render a diagram
 
 1. Preserve the user's node names, roles, edge directions, and loop labels.
-2. Create a JSON file with `canvas`, `layout`, `nodes`, and `edges`.
+2. Create a JSON file with `title`, `description`, `canvas`, `layout`,
+   `nodes`, and `edges`. Write the description first - it is the figure's
+   one-sentence lesson, the SVG `<desc>`, and the article's alt text.
 3. Add `icon` to icon-bearing nodes; use `mention` for the `@` glyph. Use
    `"variant": "icon"` for an icon with an optional label and no card.
-4. Use `route: "below"` for feedback, `ring` for a circular loop, `step` for a
-   single rounded elbow between offset cards, `orthogonal` for connectors made
-   only from horizontal and vertical segments, or `curve` with two control
-   points for a manual layout. Use `"bidirectional": true` for one connector
+4. Omit `route` for a straight connector - it is the default outside ring and
+   staircase layouts, and straight horizontal or vertical arrows are the house
+   style. Use `route: "below"` for feedback, `ring` for a circular loop,
+   `step` for a single rounded elbow between offset cards, and `orthogonal`
+   for a deliberate 90-degree elbow. A slightly inclined arrow is a defect,
+   not a routing choice; `curve` with control points is a last resort that
+   usually signals the wrong shape. Use `"bidirectional": true` for one connector
    with arrowheads at both ends, `"directed": false` for a relationship line
    without arrowheads, and `"dashed": true` for a secondary control
    relationship rather than the main application flow.
@@ -456,28 +560,26 @@ uvx --from git+https://github.com/alexeygrigorev/diagram-creator \
 
 Render `output.png` when needed; Chromium renders the generated SVG so the two
 formats match. Prefer canvas dimensions in JSON. Use `--width` and `--height`
-only for one-off overrides.
+only for one-off overrides. The CLI prints `note:` advisories on stderr for a
+canvas larger than its content or a missing description; treat them as review
+findings, not noise.
 
 ## JSON shape
 
 ```json
 {
   "title": "Build and deploy",
-  "canvas": {"width": 900, "height": 500},
+  "description": "Sources feed the index build, and the built index deploys.",
+  "canvas": {"width": 940, "height": 280},
   "layout": {"type": "manual", "card_width": 220, "card_height": 100},
   "nodes": [
-    {"id": "source", "title": "Sources", "icon": "document", "x": 40, "y": 60},
-    {"id": "build", "title": "Build index", "icon": "settings", "x": 340, "y": 280}
+    {"id": "source", "title": "Sources", "icon": "document", "x": 40, "y": 90},
+    {"id": "build", "title": "Build index", "icon": "settings", "color": "amber", "x": 360, "y": 90},
+    {"id": "deploy", "title": "Deploy", "icon": "check", "color": "green", "x": 680, "y": 90}
   ],
   "edges": [
-    {
-      "from": "source",
-      "to": "build",
-      "route": "curve",
-      "from_anchor": "right",
-      "to_anchor": "top",
-      "controls": [[300, 110], [450, 190]]
-    }
+    {"from": "source", "to": "build"},
+    {"from": "build", "to": "deploy", "color": "green"}
   ]
 }
 ```
@@ -486,11 +588,16 @@ only for one-off overrides.
 
 Inspect the image after rendering. Check every label, arrow direction, feedback
 loop, and crop. Keep an existing asset unchanged unless the user explicitly
-asks to replace it; otherwise write a new filename.
+asks to replace it; otherwise write a new filename. When deriving a variant
+from an accepted figure, copy its JSON to the new name and extend the copy -
+never mutate the accepted file. Commit the accepted state before a risky
+change, and leave in-progress edits uncommitted so the diff stays reviewable.
+When feedback names one defect, change only that defect; a targeted complaint
+is not license to restructure.
 
-Then score it against [`rubric.md`](rubric.md) before shipping. Thirty criteria
-in six sections - geometry, cards, meaning, accessibility, restraint, and the
-set - most of them measurable against the SVG or the rendered PNG.
+Then score it against [`rubric.md`](rubric.md) before shipping. Thirty-three
+criteria in six sections - geometry, cards, meaning, accessibility, restraint,
+and the set - most of them measurable against the SVG or the rendered PNG.
 Measure rather than eyeball - parse the SVG for card positions and arc radii,
 and scan the PNG for ink extents to see what the eye actually gets. Report the
 score with the failing criteria named. A diagram that renders is not a diagram

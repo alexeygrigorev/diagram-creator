@@ -32,6 +32,12 @@ one block".
 
 Work through at least these:
 
+- The figure's job. What does it teach that a caption could not? A chain of
+  boxes restating the text in order has no job, and no geometric fix will give
+  it one - say so plainly and propose the relationship worth drawing instead
+  (a fork, a boundary, a layer, a before/after). Conversely, if the figure's
+  idea is sound and only its geometry is off, say that too: rebuilding an
+  insightful figure because its arrows were crooked destroys accepted work.
 - Composition and balance. Where does the eye land first, and is that the right
   place? What competes? What is dead weight?
 - Structure. Does the diagram read as the thing it depicts - one continuous

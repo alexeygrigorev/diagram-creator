@@ -64,7 +64,7 @@ ICONS = {
 class Canvas:
     width: int = 1440
     height: int = 360
-    background: str = "#f8fafc"
+    background: str = "#ffffff"
 
 
 @dataclass(frozen=True)
@@ -80,9 +80,21 @@ class Layout:
     margin: float | None = None
     font_scale: float = 1.0
     icon_position: str = "inline"
-    fixed_icon_axis: bool = False
+    fixed_icon_axis: bool | None = None
     step_x: float | None = None
     step_y: float | None = None
+
+    @property
+    def icon_axis_fixed(self) -> bool:
+        """Whether inline icons and titles share fixed axes across cards.
+
+        Grid and manual layouts almost always hold comparable peer cards, so
+        they default to a shared axis; the automatic layouts keep per-card
+        optical centering unless the spec opts in.
+        """
+        if self.fixed_icon_axis is not None:
+            return self.fixed_icon_axis
+        return self.type in {"grid", "manual"}
 
 
 @dataclass(frozen=True)
@@ -150,7 +162,8 @@ class CenterAnnotation:
 
 @dataclass(frozen=True)
 class Divider:
-    after_row: int
+    after_row: int | None = None
+    after_node: str | None = None
 
 
 @dataclass(frozen=True)
@@ -206,9 +219,7 @@ class DiagramSpec:
                 raise SpecError(f"boundary node '{node.id}' cannot contain itself")
             unknown = [member for member in node.contains if member not in known_ids]
             if unknown:
-                raise SpecError(
-                    f"boundary node '{node.id}' contains unknown node: {unknown[0]}"
-                )
+                raise SpecError(f"boundary node '{node.id}' contains unknown node: {unknown[0]}")
             if any(node_by_id[member].variant == "boundary" for member in node.contains):
                 raise SpecError("a content-aware boundary cannot contain another boundary")
         for edge in edges:
@@ -275,7 +286,7 @@ def _parse_canvas(data: dict[str, Any]) -> Canvas:
         raise SpecError("'canvas' must be an object")
     width = raw.get("width", 1440)
     height = raw.get("height", 360)
-    background = raw.get("background", data.get("background", "#f8fafc"))
+    background = raw.get("background", data.get("background", "#ffffff"))
     if not isinstance(width, int) or width < 600:
         raise SpecError("canvas width must be an integer of at least 600")
     if not isinstance(height, int) or height < 280:
@@ -304,8 +315,8 @@ def _parse_layout(data: Any) -> Layout:
         raise SpecError(
             f"layout 'icon_position' must be one of: {', '.join(sorted(ICON_POSITIONS))}"
         )
-    fixed_icon_axis = data.get("fixed_icon_axis", False)
-    if not isinstance(fixed_icon_axis, bool):
+    fixed_icon_axis = data.get("fixed_icon_axis")
+    if fixed_icon_axis is not None and not isinstance(fixed_icon_axis, bool):
         raise SpecError("layout 'fixed_icon_axis' must be a boolean")
     step_x = _optional_number(data, "step_x", "layout")
     step_y = _optional_number(data, "step_y", "layout")
@@ -403,8 +414,7 @@ def _parse_node(data: Any) -> Node:
         )
     if attach_align not in ATTACH_ALIGNS:
         raise SpecError(
-            f"node '{node_id}' attach_align must be one of: "
-            f"{', '.join(sorted(ATTACH_ALIGNS))}"
+            f"node '{node_id}' attach_align must be one of: {', '.join(sorted(ATTACH_ALIGNS))}"
         )
     if (
         not isinstance(attach_overlap, (int, float))
@@ -467,8 +477,10 @@ def _parse_specimen(data: Any, context: str) -> Specimen | None:
             f"{context} specimen mode must be one of: {', '.join(sorted(SPECIMEN_MODES))}"
         )
     items = data.get("items")
-    if not isinstance(items, list) or len(items) != 3 or not all(
-        isinstance(item, str) and item.strip() for item in items
+    if (
+        not isinstance(items, list)
+        or len(items) != 3
+        or not all(isinstance(item, str) and item.strip() for item in items)
     ):
         raise SpecError(f"{context} specimen items must contain exactly three strings")
     return Specimen(mode=mode, items=tuple(items))
@@ -578,16 +590,30 @@ def _parse_dividers(data: Any, layout: Layout, nodes: tuple[Node, ...]) -> tuple
         raise SpecError("'dividers' must be a list")
     if layout.type not in {"grid", "manual"}:
         raise SpecError("'dividers' requires the grid or manual layout")
-    if any(node.row is None for node in nodes):
-        raise SpecError("every node needs a row when dividers are used")
+    node_ids = {node.id for node in nodes}
     rows = sorted({node.row for node in nodes if node.row is not None})
     dividers = []
     for item in data:
         if not isinstance(item, dict):
             raise SpecError("each divider must be an object")
         after_row = item.get("after_row")
+        after_node = item.get("after_node")
+        if (after_row is None) == (after_node is None):
+            raise SpecError("each divider needs exactly one of after_row or after_node")
+        if after_node is not None:
+            if not isinstance(after_node, str):
+                raise SpecError("divider after_node must be a node id string")
+            if after_node not in node_ids:
+                raise SpecError(f"divider after_node '{after_node}' is not a node id")
+            dividers.append(Divider(after_node=after_node))
+            continue
         if not isinstance(after_row, int) or isinstance(after_row, bool):
             raise SpecError("divider after_row must be an integer")
+        if any(node.row is None for node in nodes):
+            raise SpecError(
+                "every node needs a row when after_row dividers are used; "
+                "in a manual layout, after_node draws the rule below one node instead"
+            )
         if after_row not in rows or after_row == rows[-1]:
             raise SpecError(f"divider after_row {after_row} has no row below it")
         dividers.append(Divider(after_row=after_row))

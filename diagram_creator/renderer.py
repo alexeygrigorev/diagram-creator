@@ -359,6 +359,62 @@ def render_diagram(
     return destination
 
 
+def spec_advisories(
+    spec: DiagramSpec,
+    *,
+    width: int | None = None,
+    height: int | None = None,
+) -> list[str]:
+    """Non-fatal review notes for a spec that renders but will read worse than it could.
+
+    Covers the two fixes that appear in almost every human review round: a
+    canvas visibly larger than its content, and a missing description (which
+    becomes the SVG <desc> and the article's alt text).
+    """
+    canvas_width = spec.canvas.width if width is None else width
+    canvas_height = spec.canvas.height if height is None else height
+    notes = []
+    if not spec.description:
+        notes.append(
+            "no description set; it becomes the SVG <desc> and the article alt text, "
+            "and writing the one-sentence lesson first usually improves the figure"
+        )
+    if spec.layout.type != "manual" or not spec.nodes:
+        return notes
+    if any(edge.route == "below" for edge in spec.edges):
+        # A below-routed edge loops through the lower canvas, so node extents
+        # no longer describe the content.
+        return notes
+    boxes = _layout(spec, canvas_width, canvas_height)
+    label_room = {
+        node.id: 32 if node.variant == "icon" and node.show_label else 0 for node in spec.nodes
+    }
+    left = min(box.x for box in boxes.values())
+    right = max(box.right for box in boxes.values())
+    top = min(box.y for box in boxes.values())
+    bottom = max(box.bottom + label_room[node_id] for node_id, box in boxes.items())
+    margins = {
+        "left": left,
+        "right": canvas_width - right,
+        "top": top,
+        "bottom": canvas_height - bottom,
+    }
+    oversized = [name for name, value in margins.items() if value > 90]
+    uneven = (
+        abs(margins["left"] - margins["right"]) > 40 or abs(margins["top"] - margins["bottom"]) > 40
+    )
+    if oversized or uneven:
+        wanted_width = int(math.ceil((right - left + 80) / 10) * 10)
+        wanted_height = int(math.ceil((bottom - top + 80) / 10) * 10)
+        readout = ", ".join(f"{name} {margins[name]:.0f}" for name in margins)
+        notes.append(
+            f"content margins are {readout}; aim for roughly equal ~40 px margins, "
+            f"e.g. shift the content to start near 40,40 on a "
+            f"{max(wanted_width, 600)}x{max(wanted_height, 280)} canvas"
+        )
+    return notes
+
+
 def render_svg_text(
     spec: DiagramSpec,
     *,
@@ -429,7 +485,7 @@ def render_svg_text(
             title_size,
             subtitle_size,
             stacked,
-            spec.layout.fixed_icon_axis,
+            spec.layout.icon_axis_fixed,
         )
         for node in spec.nodes
         if node.variant not in {"boundary", "attached"}
@@ -872,7 +928,7 @@ def _card_title_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
                 else (
                     (
                         icon_size
-                        if spec.layout.fixed_icon_axis
+                        if spec.layout.icon_axis_fixed
                         else (
                             ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)[1]
                             - ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)[0]
@@ -986,9 +1042,11 @@ def _draw_node(
     if stacked:
         group_x = (box.width - ink_width) / 2 - ink_left
     elif node.icon:
-        group_x = 16 if fixed_icon_axis else (
-            box.width - (ink_width + gutter + title_room)
-        ) / 2 - ink_left
+        group_x = (
+            16
+            if fixed_icon_axis
+            else (box.width - (ink_width + gutter + title_room)) / 2 - ink_left
+        )
     else:
         group_x = 0
     if node.icon == "mention":
@@ -1002,9 +1060,11 @@ def _draw_node(
             f'y="{_number(icon_y)}" '
             f'width="{icon_size}" height="{icon_size}" color="{palette.stroke}"/>'
         )
-    title_x = center_x if stacked or not node.icon else group_x + (
-        icon_size if fixed_icon_axis else ink_left + ink_width
-    ) + gutter
+    title_x = (
+        center_x
+        if stacked or not node.icon
+        else group_x + (icon_size if fixed_icon_axis else ink_left + ink_width) + gutter
+    )
     title_class = "node-title" if stacked or not node.icon else "node-title icon-copy"
     lines.append(
         f'    <text class="{title_class}" x="{_number(title_x)}" '
@@ -1132,23 +1192,41 @@ def _draw_specimen_node(node: Node, box: Box, palette: Palette, scale: float = 1
 def _draw_dividers(spec: DiagramSpec, boxes: dict[str, Box], width: int) -> list[str]:
     if not spec.dividers:
         return []
+
+    def visual_bottom(node: Node) -> float:
+        # A standalone icon prints its label below the box, so the row ends lower.
+        label_room = 32 if node.variant == "icon" and node.show_label else 0
+        return boxes[node.id].bottom + label_room
+
     rows = sorted({node.row for node in spec.nodes if node.row is not None})
     bottoms: dict[int, float] = {}
     tops: dict[int, float] = {}
     for node in spec.nodes:
-        assert node.row is not None
+        if node.row is None:
+            continue
         box = boxes[node.id]
-        # A standalone icon prints its label below the box, so the row ends lower.
-        label_room = 32 if node.variant == "icon" and node.show_label else 0
-        bottoms[node.row] = max(bottoms.get(node.row, box.bottom), box.bottom + label_room)
+        bottoms[node.row] = max(bottoms.get(node.row, box.bottom), visual_bottom(node))
         tops[node.row] = min(tops.get(node.row, box.y), box.y)
     left = min(box.x for box in boxes.values())
     right = max(box.right for box in boxes.values())
     padding = min(24.0, left, width - right)
     lines = []
+    nodes_by_id = {node.id: node for node in spec.nodes}
     for divider in spec.dividers:
-        below = rows[rows.index(divider.after_row) + 1]
-        y = (bottoms[divider.after_row] + tops[below]) / 2
+        if divider.after_node is not None:
+            above = visual_bottom(nodes_by_id[divider.after_node])
+            below_tops = [
+                boxes[node.id].y
+                for node in spec.nodes
+                if node.id != divider.after_node and boxes[node.id].y >= above
+            ]
+            if not below_tops:
+                raise SpecError(f"divider after_node '{divider.after_node}' has nothing below it")
+            y = (above + min(below_tops)) / 2
+        else:
+            assert divider.after_row is not None
+            below = rows[rows.index(divider.after_row) + 1]
+            y = (bottoms[divider.after_row] + tops[below]) / 2
         lines.append(
             f'  <line class="divider" x1="{_number(left - padding)}" y1="{_number(y)}" '
             f'x2="{_number(right + padding)}" y2="{_number(y)}"/>'
@@ -1237,8 +1315,7 @@ def _draw_edge(
     label = escape(edge.label)
     pill_width = max(
         EDGE_LABEL_MIN_WIDTH,
-        _text_width(edge.label, EDGE_LABEL_SIZE, EDGE_LABEL_WEIGHT)
-        + EDGE_LABEL_HORIZONTAL_PADDING,
+        _text_width(edge.label, EDGE_LABEL_SIZE, EDGE_LABEL_WEIGHT) + EDGE_LABEL_HORIZONTAL_PADDING,
     )
     _validate_edge_label_clearance(edge, boxes, x, y, pill_width)
     parts.extend(
@@ -1286,15 +1363,11 @@ def _validate_edge_label_clearance(
     endpoints = (
         (
             boxes[edge.source],
-            EDGE_LABEL_ARROWHEAD_CLEARANCE
-            if edge.bidirectional
-            else EDGE_LABEL_ENDPOINT_CLEARANCE,
+            EDGE_LABEL_ARROWHEAD_CLEARANCE if edge.bidirectional else EDGE_LABEL_ENDPOINT_CLEARANCE,
         ),
         (
             boxes[edge.target],
-            EDGE_LABEL_ARROWHEAD_CLEARANCE
-            if edge.directed
-            else EDGE_LABEL_ENDPOINT_CLEARANCE,
+            EDGE_LABEL_ARROWHEAD_CLEARANCE if edge.directed else EDGE_LABEL_ENDPOINT_CLEARANCE,
         ),
     )
     for endpoint, clearance in endpoints:

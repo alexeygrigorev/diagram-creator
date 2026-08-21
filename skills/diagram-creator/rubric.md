@@ -9,7 +9,7 @@ passes and a designer pass finds nothing structural left.
 
 ## How to score
 
-Thirty criteria in six sections. Each is pass, fail, or N/A - a criterion that
+Thirty-three criteria in six sections. Each is pass, fail, or N/A - a criterion that
 does not apply (ring checks on a staircase, set checks on a lone diagram) leaves
 the denominator entirely; it is never a free point. Anything you cannot verify
 scores zero, not the benefit of the doubt.
@@ -21,9 +21,10 @@ A geometry 6/7 · B cards 6/6 · C meaning 5/6 · D access 5/5 · E restraint 4/
 Total 26/28. Failing: A4 (gap spread 1.4x), C2 (evaluate->deploy arrow reversed).
 ```
 
-Three criteria are blockers: C1, A6, B4, plus D1. A diagram failing a blocker
-does not ship at any total - a reversed arrow or unreadable text is not offset by
-good geometry.
+Five criteria are blockers: C1, C7, A6, B4, and D1. A diagram failing a blocker
+does not ship at any total - a reversed arrow, a figure with no job, or
+unreadable text is not offset by good geometry. Score C7 and C8 first: a
+content redesign moots every geometric fix.
 
 Each criterion is tagged AUTOMATABLE (a script can check it against the JSON,
 SVG or PNG) or JUDGEMENT (needs a reader, though the check is still concrete).
@@ -128,69 +129,6 @@ Check: bounding box of all cards against the canvas; opposite margins should
 match. For a ring, remember the circle only grows until its cards hit the
 margin, so a wide canvas buys side whitespace, not a wider loop. Give rings a
 roughly square canvas.
-
-## Beyond the checklist
-
-The criteria catch structure, geometry, meaning and access. They do not catch whether the
-diagram is well designed - colour doing work versus colour as noise, hierarchy,
-whether the annotation should exist at all, whether five hues help or scatter
-the eye.
-
-For that, run the designer review in `agents/designer.md` and treat its
-structural findings as additional criteria for that specific diagram.
-
-## Worked example
-
-A five-node loop scored across one session:
-
-- 3/10 at the start: ellipse not circle (1), squashed rhythm, dead band across
-  the top (10), mixed text axes (6), content sitting low (7).
-- 6/10 after the geometry was fixed: true circle, even margins, annotation
-  centered - but one connector on a different radius (2), bottom cards 115 px
-  apart (4), and 109-148 px of empty space beside every title (5).
-- Still 6/10 after that, because criterion 4 was being checked on one pair
-  only. Measured across all five, the gaps were 164/288/179/288/164 - the side
-  pairs 1.76x the top pairs - and the connectors, while sharing a radius, were
-  clipped per card so each arc was a different length.
-- Claimed 10/10 after one shared angular standoff made the arcs identical. Wrong
-  again: a shared standoff means only the card needing the widest one is
-  actually touched, so four connectors floated 12 px off their cards. Criteria
-  3, 7, 10 and 11 were all still failing and none of them were in the rubric
-  yet.
-- 6/10 once those were named: connectors not touching, icon groups centered on
-  boxes instead of ink, 20 px type on a 1180 px canvas landing under 7 px on a
-  phone, and subtitles and a center heading still rendering after being cut.
-
-Two lessons, both learned the hard way:
-
-- A criterion sampled on one instance is not checked. Measure every pair, every
-  connector, every card.
-- A score is only as good as the rubric behind it. Several times the diagram
-  measured full marks and was still visibly wrong, because the thing that was
-  wrong had no criterion. When feedback names a fault the rubric does not cover,
-  add the criterion before fixing the diagram.
-- Score before shipping, not after being told. A card a third full shipped
-  because criterion 5 only measured width, and because the render was looked at,
-  noticed to be airy, and sent anyway with the concern written in prose instead
-  of being treated as a failure. A flagged fault is still a fault - if it is
-  worth mentioning, it is worth either fixing or asking about before it ships.
-
-## The criteria that fight each other
-
-Several criteria cannot be maximised together, so decide the priority before
-tuning rather than chasing each complaint in turn:
-
-- Even gaps (4) want cards small relative to the radius. Short connectors and a
-  compact canvas want the opposite.
-- Equal length (2) and exact contact (3) cannot both hold for rectangles on a
-  circle. The renderer resolves this one for you: length is guaranteed, contact
-  is bounded.
-- A compact canvas reads better on a phone - it is scaled down less, so every
-  size on it survives - but leaves less room for everything else.
-
-For a diagram that will be read on a phone, start from the canvas: pick the
-smallest one that still holds the content, then let the type sizes follow. A
-1180 px canvas on a 390 px screen shrinks 20 px type to under 7 px.
 
 ### A6. Nothing collides and nothing is clipped - AUTOMATABLE, BLOCKER
 
@@ -369,6 +307,28 @@ the pairing.
 Check: cover the titles, read only the icons, write down what each suggests,
 then uncover. Any icon whose guess contradicts its card fails. An icon that
 suggests nothing in particular fails E2.
+
+### C7. The figure adds what prose cannot - JUDGEMENT, BLOCKER
+
+The figure shows a relationship the surrounding text does not already carry: a
+fork, a boundary, a layer, a before/after. A chain of boxes restating the
+paragraphs in order is decoration, and no amount of geometry rescues it.
+
+Check: state in one sentence what a reader learns from the figure that the
+caption alone does not teach. If the sentence is the caption, the figure
+fails. This is where whole diagram sets have been rejected at once, so check
+it before any geometric criterion - a redesign moots the rest.
+
+### C8. The shape matches the relationship - JUDGEMENT with automatable hints
+
+Sequence is drawn as a chain only when each stage hands work to the next.
+Peers that do not produce each other get a stack, a row, or containment with
+no arrows between them; one decision gets one fork with labelled branches.
+
+Check, from the JSON: arrows joining sibling cards whose caption relationship
+is "and", not "then", fail. `controls` on any edge is a strong hint the
+chosen shape cannot carry the flow. More than about seven content nodes, or
+more than one fork, means the figure is carrying two jobs - split it.
 
 ## Section D - Accessibility
 

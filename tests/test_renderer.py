@@ -1427,9 +1427,16 @@ def test_renders_a_plain_node_without_a_card(tmp_path):
 
 
 def test_card_with_an_icon_shares_one_text_axis_and_centers_its_block(tmp_path):
+    # Optical centering is the opted-out mode now that grid and manual layouts
+    # default to a fixed icon axis.
     spec = DiagramSpec.from_dict(
         {
-            "layout": {"type": "manual", "card_width": 240, "card_height": 110},
+            "layout": {
+                "type": "manual",
+                "card_width": 240,
+                "card_height": 110,
+                "fixed_icon_axis": False,
+            },
             "nodes": [
                 {
                     "id": "docs",
@@ -1550,3 +1557,66 @@ def test_draws_a_dashed_divider_between_grid_rows(tmp_path):
     svg = output.read_text()
     assert svg.count('class="divider"') == 1
     assert '<line class="divider" x1="126" y1="200" x2="674" y2="200"/>' in svg
+
+
+def test_draws_a_divider_below_a_named_node_in_a_manual_layout(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 600, "height": 400},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {"id": "before", "title": "Before", "x": 40, "y": 40},
+                {"id": "after", "title": "After", "x": 40, "y": 240},
+            ],
+            "edges": [],
+            "dividers": [{"after_node": "before"}],
+        }
+    )
+    output = tmp_path / "node-divider.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    # Halfway between the top card's bottom (140) and the lower card's top (240).
+    assert svg.count('class="divider"') == 1
+    assert 'y1="190"' in svg and 'y2="190"' in svg
+
+
+def test_advisories_flag_dead_margins_and_a_missing_description():
+    from diagram_creator.renderer import spec_advisories
+
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 1200, "height": 500},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {"id": "first", "title": "First", "x": 40, "y": 40},
+                {"id": "second", "title": "Second", "x": 320, "y": 40},
+            ],
+            "edges": [],
+        }
+    )
+
+    notes = spec_advisories(spec)
+
+    assert any("no description" in note for note in notes)
+    assert any("margins" in note for note in notes)
+
+
+def test_advisories_stay_quiet_for_a_fitted_canvas():
+    from diagram_creator.renderer import spec_advisories
+
+    spec = DiagramSpec.from_dict(
+        {
+            "description": "Two cards sit centered on a canvas sized to hold them.",
+            "canvas": {"width": 600, "height": 280},
+            "layout": {"type": "manual", "card_width": 240, "card_height": 200},
+            "nodes": [
+                {"id": "first", "title": "First", "x": 40, "y": 40},
+                {"id": "second", "title": "Second", "x": 320, "y": 40},
+            ],
+            "edges": [],
+        }
+    )
+
+    assert spec_advisories(spec) == []
