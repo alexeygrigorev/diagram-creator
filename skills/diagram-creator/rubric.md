@@ -199,11 +199,17 @@ canvas edge. Text stays inside its card with real padding; edge labels sit in
 open space, not on cards or other edges; connectors pass under no card they do
 not connect.
 
-Check, three parts: for every text element, `_text_width` against the card box -
+Check, four parts: for every text element, `_text_width` against the card box -
 at least 12 px of clearance on every side; for every edge label box, zero
-intersection with any card box or other label; the outer 8 px band of the PNG
-contains only background. The renderer knows every box and path, so all three
-are assertable at render time.
+intersection with any card box or other label; every edge-label pill stays at
+least 14 px away from a directed target (and from both endpoints of a
+bidirectional edge), so its white fill cannot cover the marker; the outer 8 px
+band of the PNG contains only background. The renderer knows every box and
+path, so all four are assertable at render time.
+
+When a connector enters or leaves a dashed boundary, the boundary stroke has a
+clear port around the connector. A dashed stroke must never remain visible
+through an arrow shaft or merge visually with its marker.
 
 ### A7. Crossings are minimised and deliberate - AUTOMATABLE count, JUDGEMENT verdict
 

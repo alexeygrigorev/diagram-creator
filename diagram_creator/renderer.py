@@ -70,6 +70,14 @@ ICON_SIZE = 34
 TITLE_SIZE, TITLE_WEIGHT = 20, 750
 SUBTITLE_SIZE, SUBTITLE_WEIGHT = 16, 500
 DETAIL_SIZE, DETAIL_WEIGHT = 16, 600
+EDGE_LABEL_SIZE, EDGE_LABEL_WEIGHT = 14, 750
+EDGE_LABEL_HEIGHT = 32
+EDGE_LABEL_MIN_WIDTH = 62
+EDGE_LABEL_HORIZONTAL_PADDING = 24
+# A 9 px marker needs room behind its tip. Keep the label pill farther away so
+# its white fill never erases the arrowhead or appears to run into the card.
+EDGE_LABEL_ARROWHEAD_CLEARANCE = 14
+EDGE_LABEL_ENDPOINT_CLEARANCE = 8
 ANNOTATION_PADDING = 14
 CENTER_TITLE_RATIO, CENTER_DETAIL_RATIO = 0.22, 0.72
 CENTER_TITLE_MIN, CENTER_TITLE_MAX = 16, 44
@@ -87,8 +95,10 @@ ICON_INK = {
     "browser": (0.0, 1.0),
     "check": (0.083, 0.917),
     "close": (0.083, 0.917),
+    "collector": (0.0, 1.0),
     "database": (0.125, 0.875),
     "document": (0.208, 0.792),
+    "environment": (0.083, 0.917),
     "github": (0.025, 0.975),
     "issue": (0.083, 0.917),
     "message": (0.125, 0.875),
@@ -96,8 +106,11 @@ ICON_INK = {
     "number-2": (0.042, 0.958),
     "number-3": (0.042, 0.958),
     "openai": (0.0, 1.0),
+    "observability": (0.0, 1.0),
     "pull-request": (0.108, 0.892),
     "rank-fusion": (0.083, 0.917),
+    "registry": (0.083, 0.917),
+    "robot": (0.062, 0.938),
     "search": (0.15, 0.892),
     "settings": (0.042, 0.958),
     "sparkles": (0.05, 0.95),
@@ -105,6 +118,7 @@ ICON_INK = {
     "video": (0.083, 0.917),
     "warning": (0.067, 0.933),
     "websocket": (0.125, 0.875),
+    "workflow": (0.042, 0.958),
 }
 DEFAULT_ICON_INK = (0.083, 0.917)
 EYEBROW_SIZE = 13
@@ -406,6 +420,7 @@ def render_svg_text(
             title_size,
             subtitle_size,
             stacked,
+            spec.layout.fixed_icon_axis,
         )
         for node in spec.nodes
         if node.variant != "boundary"
@@ -787,11 +802,17 @@ def _card_title_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
                 0
                 if stacked or not node.icon
                 else (
-                    ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)[1]
-                    - ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)[0]
+                    (
+                        icon_size
+                        if spec.layout.fixed_icon_axis
+                        else (
+                            ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)[1]
+                            - ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)[0]
+                        )
+                        * icon_size
+                    )
+                    + gutter
                 )
-                * icon_size
-                + gutter
             )
             for node in spec.nodes
             if node.variant not in {"icon", "boundary"}
@@ -825,6 +846,7 @@ def _draw_node(
     title_size: int | None = None,
     subtitle_size: int | None = None,
     stacked: bool = False,
+    fixed_icon_axis: bool = False,
 ) -> str:
     palette = PALETTES[node.color]
     if node.variant == "icon":
@@ -883,18 +905,20 @@ def _draw_node(
             f'font-size="{eyebrow_size}">'
             f"{escape(node.eyebrow)}</text>"
         )
-    # Icon and title are one centered group: a left-aligned row would leave the
-    # right half of the card empty, and a centered subtitle under a left-aligned
-    # title puts the two lines on competing axes.
+    # Cards normally center each visible icon-title pair. Comparable cards can
+    # opt into a fixed icon and title axis so different labels stay aligned.
     ink_start, ink_end = ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)
     ink_left, ink_width = ink_start * icon_size, (ink_end - ink_start) * icon_size
-    title_width = box.width - 32 - (0 if stacked or not node.icon else ink_width + gutter)
+    reserved_icon = icon_size if fixed_icon_axis else ink_width
+    title_width = box.width - 32 - (0 if stacked or not node.icon else reserved_icon + gutter)
     title_room = min(_text_width(node.title, title_size, TITLE_WEIGHT), title_width)
     # Centre what is visible: the icon's ink plus the gutter plus the title.
     if stacked:
         group_x = (box.width - ink_width) / 2 - ink_left
     elif node.icon:
-        group_x = (box.width - (ink_width + gutter + title_room)) / 2 - ink_left
+        group_x = 16 if fixed_icon_axis else (
+            box.width - (ink_width + gutter + title_room)
+        ) / 2 - ink_left
     else:
         group_x = 0
     if node.icon == "mention":
@@ -908,7 +932,9 @@ def _draw_node(
             f'y="{_number(icon_y)}" '
             f'width="{icon_size}" height="{icon_size}" color="{palette.stroke}"/>'
         )
-    title_x = center_x if stacked or not node.icon else group_x + ink_left + ink_width + gutter
+    title_x = center_x if stacked or not node.icon else group_x + (
+        icon_size if fixed_icon_axis else ink_left + ink_width
+    ) + gutter
     title_class = "node-title" if stacked or not node.icon else "node-title icon-copy"
     lines.append(
         f'    <text class="{title_class}" x="{_number(title_x)}" '
@@ -1035,20 +1061,99 @@ def _draw_edge(
     marker_end = f' marker-end="url(#arrow-{edge.color})"' if edge.directed else ""
     dash = ' stroke-dasharray="8 8"' if edge.dashed else ""
     line = f'  <path class="edge" d="{path}" stroke="{color}"{dash}{marker_start}{marker_end}/>'
+    parts = []
+    if _edge_crosses_boundary(spec, edge, boxes):
+        parts.append(
+            f'  <path class="edge-boundary-halo" d="{path}" fill="none" stroke="#ffffff" '
+            'stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>'
+        )
+    parts.append(line)
     if not edge.label:
-        return line
+        return "\n".join(parts)
     x, y = label_point
     label = escape(edge.label)
-    pill_width = max(62, len(edge.label) * 9 + 24)
-    return "\n".join(
+    pill_width = max(
+        EDGE_LABEL_MIN_WIDTH,
+        _text_width(edge.label, EDGE_LABEL_SIZE, EDGE_LABEL_WEIGHT)
+        + EDGE_LABEL_HORIZONTAL_PADDING,
+    )
+    _validate_edge_label_clearance(edge, boxes, x, y, pill_width)
+    parts.extend(
         (
-            line,
             f'  <g class="edge-label" transform="translate({_number(x)} {_number(y)})">',
-            f'    <rect x="{-pill_width / 2}" y="-16" width="{pill_width}" height="32" '
-            f'rx="16" fill="#ffffff" stroke="{color}"/>',
+            f'    <rect x="{_number(-pill_width / 2)}" y="{_number(-EDGE_LABEL_HEIGHT / 2)}" '
+            f'width="{_number(pill_width)}" height="{EDGE_LABEL_HEIGHT}" '
+            f'rx="{EDGE_LABEL_HEIGHT / 2}" fill="#ffffff" stroke="{color}"/>',
             f'    <text fill="{color}">{label}</text>',
             "  </g>",
         )
+    )
+    return "\n".join(parts)
+
+
+def _edge_crosses_boundary(spec: DiagramSpec, edge: Edge, boxes: dict[str, Box]) -> bool:
+    source = boxes[edge.source]
+    target = boxes[edge.target]
+    for node in spec.nodes:
+        if node.variant != "boundary":
+            continue
+        if edge.source == node.id or edge.target == node.id:
+            return True
+        boundary = boxes[node.id]
+        source_inside = _point_inside_box((source.center_x, source.center_y), boundary)
+        target_inside = _point_inside_box((target.center_x, target.center_y), boundary)
+        if source_inside != target_inside:
+            return True
+    return False
+
+
+def _point_inside_box(point: tuple[float, float], box: Box) -> bool:
+    x, y = point
+    return box.x < x < box.right and box.y < y < box.bottom
+
+
+def _validate_edge_label_clearance(
+    edge: Edge,
+    boxes: dict[str, Box],
+    x: float,
+    y: float,
+    width: float,
+) -> None:
+    label = Box(x - width / 2, y - EDGE_LABEL_HEIGHT / 2, width, EDGE_LABEL_HEIGHT)
+    endpoints = (
+        (
+            boxes[edge.source],
+            EDGE_LABEL_ARROWHEAD_CLEARANCE
+            if edge.bidirectional
+            else EDGE_LABEL_ENDPOINT_CLEARANCE,
+        ),
+        (
+            boxes[edge.target],
+            EDGE_LABEL_ARROWHEAD_CLEARANCE
+            if edge.directed
+            else EDGE_LABEL_ENDPOINT_CLEARANCE,
+        ),
+    )
+    for endpoint, clearance in endpoints:
+        protected = Box(
+            endpoint.x - clearance,
+            endpoint.y - clearance,
+            endpoint.width + 2 * clearance,
+            endpoint.height + 2 * clearance,
+        )
+        if _boxes_overlap(label, protected):
+            raise SpecError(
+                f"edge label '{edge.label}' on {edge.source} -> {edge.target} is too close "
+                "to an endpoint or arrowhead; widen the gutter or shorten the label"
+            )
+
+
+def _boxes_overlap(first: Box, second: Box) -> bool:
+    return (
+        first.x < second.right
+        and first.right > second.x
+        and first.y < second.bottom
+        and first.bottom > second.y
     )
 
 

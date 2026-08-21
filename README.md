@@ -175,6 +175,10 @@ title size and one subtitle size - the largest that fits every card
 undistorted - so the type stays consistent and every glyph keeps its natural
 width.
 
+Set `"fixed_icon_axis": true` on a layout when comparable cards should use one
+shared icon column and one shared title column instead of centering each
+icon-title pair independently.
+
 Manual layouts still use reusable cards and icons—the JSON controls placement,
 not raw SVG markup:
 
@@ -229,11 +233,14 @@ Available icons are `aws`, `github`, `search`, `shield`, `container`,
 `database`, `volume`, `openai`, `issue`, `document`, `user`, `browser`,
 `websocket`, `api`, `settings`, `pull-request`, `rank-fusion`, `message`,
 `video`, `sparkles`, `check`, `warning`, `close`, `mention`, `number-1`,
-`number-2`, and `number-3`.
+`number-2`, `number-3`, `workflow`, `robot`, `observability`, `environment`, `registry`, and
+`collector`.
 
 Use `"variant": "boundary"` in a manual layout for a dashed infrastructure or
 runtime boundary behind related nodes. Give it explicit `x`, `y`, `width`, and
-`height`; its title appears in the top-left corner.
+`height`; its title appears in the top-left corner. Connectors entering or
+leaving the group receive a background halo so they cross the dashed stroke
+through a clean port instead of visually merging with it.
 
 Cards use one component system: a 16 px inset, 28 px icon viewport, 2 px
 semantic border, 18 px radius, and a shared shadow. An icon anchors the card to
@@ -251,6 +258,10 @@ means inside a staircase, and it also works in a grid or manual layout.
 two absolute `[x, y]` control points. Set `"dashed": true` for a dashed edge,
 `"directed": false` for no arrowheads, or `"bidirectional": true` for
 arrowheads at both ends.
+
+Edge-label pills use measured text width plus fixed padding. The renderer keeps
+them at least 14 px clear of arrowheads and rejects a label when its gutter is
+too narrow, so a pill cannot silently cover a marker or run into a card.
 
 ## Codex skill
 

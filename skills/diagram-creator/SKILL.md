@@ -22,8 +22,9 @@ Available icons are `aws`, `github`, `search`, `shield`, `container`,
 `database`, `volume`, `openai`, `issue`, `document`, `user`, `browser`,
 `websocket`, `api`, `settings`, `pull-request`, `rank-fusion`, `message`,
 `video`, `sparkles`, `check`, `warning`, `close`, `mention`, `number-1`,
-`number-2`, and `number-3`. Use the numbered icons to mark ordered stages
-instead of writing the step number into the title.
+`number-2`, `number-3`, `workflow`, `robot`, `observability`, `environment`, `registry`, and `collector`.
+Use the numbered icons to mark ordered stages instead of writing the step
+number into the title.
 
 Use `"variant": "boundary"` in a manual layout for a dashed infrastructure or
 runtime boundary behind related nodes. Give it explicit `x`, `y`, `width`, and
@@ -201,6 +202,8 @@ component:
 
 - Fix one icon axis and one text axis for every comparable card. Never move an
   icon to compensate for a shorter or longer label.
+- Set `"fixed_icon_axis": true` on the layout when inline icons and titles
+  should share those axes across every card in the diagram.
 - Use a 24–28 px icon viewport. Center it vertically against the full title and
   subtitle block.
 - Left-align both title and subtitle on the same text axis when labels vary in
@@ -351,6 +354,12 @@ independently tuned absolute coordinates.
 - Attach dependency lines to the actual producer and consumer nodes. Do not
   start a dashed or labeled relationship in an empty gutter merely because the
   line looks nearby.
+- Keep edge-label pills at least 14 px clear of arrowheads. The renderer sizes
+  pills from measured text and rejects labels that cannot fit safely; widen the
+  gutter or shorten the label instead of allowing a pill to cover a marker.
+- Connectors that enter or leave a dashed boundary receive a background halo
+  automatically. Confirm the resulting port is visible and the boundary does
+  not merge with the connector or arrowhead.
 - Put long request/response semantics in card subtitles when a 60 px connector
   cannot hold the label. If an edge label is essential, widen the relevant
   gutters consistently or route it through open space.

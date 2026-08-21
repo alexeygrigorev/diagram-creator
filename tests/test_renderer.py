@@ -178,6 +178,49 @@ def test_renders_a_dashed_edge(tmp_path):
     assert 'stroke-dasharray="8 8"' in output.read_text()
 
 
+def test_edge_label_uses_measured_text_width(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 620, "height": 280},
+            "layout": {"type": "manual", "card_width": 180, "card_height": 80},
+            "nodes": [
+                {"id": "source", "title": "Source", "x": 20, "y": 80},
+                {"id": "target", "title": "Target", "x": 420, "y": 80},
+            ],
+            "edges": [{"from": "source", "to": "target", "label": "Manual trigger"}],
+        }
+    )
+    output = tmp_path / "measured-label.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    label_rect = re.search(
+        r'<g class="edge-label"[^>]*>\s*<rect x="[-\d.]+" y="-16" '
+        r'width="([\d.]+)" height="32"',
+        svg,
+    )
+    assert label_rect is not None
+    assert float(label_rect.group(1)) == pytest.approx(141.04, abs=0.01)
+
+
+def test_rejects_an_edge_label_that_would_cover_the_arrowhead(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 600, "height": 280},
+            "layout": {"type": "manual", "card_width": 180, "card_height": 80},
+            "nodes": [
+                {"id": "source", "title": "Source", "x": 20, "y": 80},
+                {"id": "target", "title": "Target", "x": 270, "y": 80},
+            ],
+            "edges": [{"from": "source", "to": "target", "label": "Manual trigger"}],
+        }
+    )
+
+    with pytest.raises(SpecError, match="widen the gutter or shorten the label"):
+        render_diagram(spec, tmp_path / "crowded-label.svg")
+
+
 def test_renders_an_undirected_edge_without_arrowheads(tmp_path):
     spec = DiagramSpec.from_dict(
         {
@@ -387,6 +430,66 @@ def test_renders_boundary_behind_edges_and_nodes(tmp_path):
     assert 'class="node-boundary node-blue"' in svg
     assert svg.index('class="node-boundary node-blue"') < svg.index('class="edge"')
     assert 'class="boundary-title"' in svg
+
+
+def test_connector_crossing_a_boundary_gets_a_clear_port(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 900, "height": 420},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {
+                    "id": "host",
+                    "title": "CI/CD",
+                    "variant": "boundary",
+                    "x": 260,
+                    "y": 50,
+                    "width": 600,
+                    "height": 300,
+                },
+                {"id": "user", "title": "User", "x": 20, "y": 160},
+                {"id": "deploy", "title": "Deploy", "x": 330, "y": 160},
+            ],
+            "edges": [{"from": "user", "to": "deploy"}],
+        }
+    )
+    output = tmp_path / "boundary-port.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    halo = '<path class="edge-boundary-halo" d="M240 210L330 210"'
+    edge = '<path class="edge" d="M240 210L330 210"'
+    assert halo in svg
+    assert svg.index(halo) < svg.index(edge)
+
+
+def test_connector_inside_one_boundary_does_not_get_a_halo(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 900, "height": 420},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {
+                    "id": "host",
+                    "title": "CI/CD",
+                    "variant": "boundary",
+                    "x": 40,
+                    "y": 40,
+                    "width": 820,
+                    "height": 320,
+                },
+                {"id": "build", "title": "Build", "x": 100, "y": 160},
+                {"id": "deploy", "title": "Deploy", "x": 580, "y": 160},
+            ],
+            "edges": [{"from": "build", "to": "deploy"}],
+        }
+    )
+    output = tmp_path / "inside-boundary.svg"
+
+    render_diagram(spec, output)
+
+    assert 'class="edge-boundary-halo"' not in output.read_text()
 
 
 def test_renders_an_icon_node_with_its_label_but_without_a_card(tmp_path):

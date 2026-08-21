@@ -45,6 +45,12 @@ ICONS = {
     "number-2",
     "number-3",
     "volume",
+    "workflow",
+    "robot",
+    "observability",
+    "environment",
+    "registry",
+    "collector",
 }
 
 
@@ -68,6 +74,7 @@ class Layout:
     margin: float | None = None
     font_scale: float = 1.0
     icon_position: str = "inline"
+    fixed_icon_axis: bool = False
     step_x: float | None = None
     step_y: float | None = None
 
@@ -233,6 +240,9 @@ def _parse_layout(data: Any) -> Layout:
         raise SpecError(
             f"layout 'icon_position' must be one of: {', '.join(sorted(ICON_POSITIONS))}"
         )
+    fixed_icon_axis = data.get("fixed_icon_axis", False)
+    if not isinstance(fixed_icon_axis, bool):
+        raise SpecError("layout 'fixed_icon_axis' must be a boolean")
     step_x = _optional_number(data, "step_x", "layout")
     step_y = _optional_number(data, "step_y", "layout")
     if card_width is not None and card_width <= 0:
@@ -278,6 +288,7 @@ def _parse_layout(data: Any) -> Layout:
         margin=margin,
         font_scale=1.0 if font_scale is None else float(font_scale),
         icon_position=icon_position,
+        fixed_icon_axis=fixed_icon_axis,
         step_x=step_x,
         step_y=step_y,
     )

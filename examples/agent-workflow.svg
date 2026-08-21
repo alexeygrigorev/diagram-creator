@@ -41,7 +41,7 @@
   <path class="edge" d="M1029.6 122.2L1130.4 122.2" stroke="#15803d" marker-end="url(#arrow-green)"/>
   <path class="edge" d="M900 186.8V277.2H540V190.4" stroke="#dc2626" marker-end="url(#arrow-red)"/>
   <g class="edge-label" transform="translate(720 277.2)">
-    <rect x="-31.0" y="-16" width="62" height="32" rx="16" fill="#ffffff" stroke="#dc2626"/>
+    <rect x="-31" y="-16" width="62" height="32" rx="16.0" fill="#ffffff" stroke="#dc2626"/>
     <text fill="#dc2626">FAIL</text>
   </g>
 
