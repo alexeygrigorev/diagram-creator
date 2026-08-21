@@ -465,7 +465,7 @@ def _layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
                 ),
             )
             for node in spec.nodes
-            if node.variant != "attached"
+            if node.variant != "attached" and not (node.variant == "boundary" and node.contains)
         }
         for node in spec.nodes:
             if node.variant != "attached":
@@ -474,19 +474,45 @@ def _layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
             node_width = node.width or 92
             node_height = node.height or 54
             overlap = node.attach_overlap
+            if node.attach_align == "start":
+                aligned_x = parent.x - node_width / 2
+                aligned_y = parent.y - node_height / 2
+            elif node.attach_align == "end":
+                aligned_x = parent.right - node_width / 2
+                aligned_y = parent.bottom - node_height / 2
+            else:
+                aligned_x = parent.center_x - node_width / 2
+                aligned_y = parent.center_y - node_height / 2
             if node.attach_side == "left":
                 x = parent.x - node_width + overlap
-                y = parent.center_y - node_height / 2
+                y = aligned_y
             elif node.attach_side == "top":
-                x = parent.center_x - node_width / 2
+                x = aligned_x
                 y = parent.y - node_height + overlap
             elif node.attach_side == "bottom":
-                x = parent.center_x - node_width / 2
+                x = aligned_x
                 y = parent.bottom - overlap
             else:
                 x = parent.right - overlap
-                y = parent.center_y - node_height / 2
+                y = aligned_y
             boxes[node.id] = Box(x, y, node_width, node_height)
+        node_by_id = {node.id: node for node in spec.nodes}
+        for node in spec.nodes:
+            if node.variant != "boundary" or not node.contains:
+                continue
+            members = [
+                _visual_node_box(node_by_id[member], boxes[member]) for member in node.contains
+            ]
+            left = min(member.x for member in members)
+            top = min(member.y for member in members)
+            right = max(member.right for member in members)
+            bottom = max(member.bottom for member in members)
+            boxes[node.id] = Box(
+                left - node.margin.left,
+                top - node.margin.top,
+                right - left + node.margin.left + node.margin.right,
+                bottom - top + node.margin.top + node.margin.bottom,
+            )
         return boxes
     if spec.layout.type == "ring":
         return _ring_layout(spec, width, height)
@@ -516,6 +542,12 @@ def _connector_boxes(spec: DiagramSpec, boxes: dict[str, Box]) -> dict[str, Box]
             icon_height * (bottom - top),
         )
     return result
+
+
+def _visual_node_box(node: Node, box: Box) -> Box:
+    """Include the visible label below a standalone icon in group bounds."""
+    label_room = 32 if node.variant == "icon" and node.show_label else 0
+    return Box(box.x, box.y, box.width, box.height + label_room)
 
 
 def _staircase_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
@@ -851,7 +883,7 @@ def _card_title_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
                 )
             )
             for node in spec.nodes
-            if node.variant not in {"icon", "boundary"}
+            if node.variant not in {"icon", "boundary", "specimen"}
         ):
             return size
     return 8
@@ -869,7 +901,7 @@ def _card_subtitle_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
                 )
             )
             for node in spec.nodes
-            if node.subtitle and node.variant not in {"icon", "boundary"}
+            if node.subtitle and node.variant not in {"icon", "boundary", "specimen"}
         ):
             return size
     return 8
@@ -887,6 +919,8 @@ def _draw_node(
     palette = PALETTES[node.color]
     if node.variant == "icon":
         return _draw_icon_node(node, box, palette)
+    if node.variant == "specimen":
+        return _draw_specimen_node(node, box, palette, scale)
     plain = node.variant == "plain"
     # One scale drives glyph sizes and the vertical rhythm together, so a card
     # with bigger type keeps the same proportions rather than just crowding.
@@ -1019,6 +1053,80 @@ def _draw_attached_node(node: Node, box: Box, scale: float = 1.0) -> str:
             "  </g>",
         ]
     )
+
+
+def _draw_specimen_node(node: Node, box: Box, palette: Palette, scale: float = 1.0) -> str:
+    """Draw a compact card whose visual form resembles the signal it explains."""
+    if box.width < 360 or box.height < 140:
+        raise SpecError(f"specimen node '{node.id}' requires at least 360x140")
+    assert node.specimen is not None
+    title_size = round(19 * scale)
+    item_size = round(14 * scale)
+    lines = [
+        f'  <g class="node-specimen node-{escape(node.color)} specimen-{node.specimen.mode}" '
+        f'transform="translate({_number(box.x)} {_number(box.y)})" filter="url(#shadow)">',
+        f'    <rect width="{_number(box.width)}" height="{_number(box.height)}" '
+        f'rx="18" fill="{palette.fill}" stroke="{palette.stroke}"/>',
+        f'    <text x="24" y="31" font-size="{title_size}" font-weight="750" '
+        f'text-anchor="start" fill="#172033">{escape(node.title)}</text>',
+    ]
+    if node.specimen.mode == "series":
+        lines.extend(
+            [
+                '    <path d="M24 122V51M24 122H190" fill="none" stroke="#94a3b8" '
+                'stroke-width="1.5"/>',
+                '    <path d="M24 98H190M24 74H190" fill="none" stroke="#cbd5e1" '
+                'stroke-width="1" stroke-dasharray="4 5"/>',
+                f'    <path d="M28 108L52 101L76 104L100 84L124 89L148 63L186 70" '
+                f'fill="none" stroke="{palette.stroke}" stroke-width="2.5" '
+                'stroke-linecap="round" stroke-linejoin="round"/>',
+                f'    <path d="M28 115L52 112L76 99L100 103L124 78L148 82L186 57" '
+                f'fill="none" stroke="{palette.stroke}" stroke-opacity=".45" '
+                'stroke-width="2" stroke-dasharray="5 4"/>',
+            ]
+        )
+        for index, item in enumerate(node.specimen.items):
+            y = 62 + index * 29
+            dash = ' stroke-dasharray="4 3"' if index == 1 else ""
+            lines.extend(
+                [
+                    f'    <line x1="220" y1="{y - 5}" x2="236" y2="{y - 5}" '
+                    f'stroke="{palette.stroke}" stroke-width="2.5"{dash}/>',
+                    f'    <text x="246" y="{y}" font-size="{item_size}" font-weight="600" '
+                    f'text-anchor="start" fill="#475569">{escape(item)}</text>',
+                ]
+            )
+    elif node.specimen.mode == "record":
+        lines.append(
+            f'    <rect x="20" y="46" width="{_number(box.width - 40)}" height="84" '
+            'rx="10" fill="#ffffff" stroke="#cbd5e1"/>'
+        )
+        for index, item in enumerate(node.specimen.items):
+            y = 70 + index * 25
+            lines.extend(
+                [
+                    f'    <circle cx="34" cy="{y - 5}" r="3" fill="{palette.stroke}"/>',
+                    f'    <text x="46" y="{y}" font-size="{item_size}" font-weight="500" '
+                    'font-family="ui-monospace, SFMono-Regular, Menlo, monospace" '
+                    f'text-anchor="start" fill="#475569">{escape(item)}</text>',
+                ]
+            )
+    else:
+        bar_widths = (205, 150, 105)
+        indents = (0, 22, 44)
+        for index, item in enumerate(node.specimen.items):
+            y = 63 + index * 28
+            lines.extend(
+                [
+                    f'    <text x="24" y="{y}" font-size="{item_size}" font-weight="600" '
+                    f'text-anchor="start" fill="#475569">{escape(item)}</text>',
+                    f'    <rect x="{160 + indents[index]}" y="{y - 13}" '
+                    f'width="{bar_widths[index]}" height="14" rx="7" '
+                    f'fill="{palette.stroke}" fill-opacity="{0.9 - index * 0.2}"/>',
+                ]
+            )
+    lines.append("  </g>")
+    return "\n".join(lines)
 
 
 def _draw_dividers(spec: DiagramSpec, boxes: dict[str, Box], width: int) -> list[str]:

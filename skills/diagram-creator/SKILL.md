@@ -31,12 +31,22 @@ Use `"variant": "boundary"` in a manual layout for a dashed infrastructure or
 runtime boundary behind related nodes. Give it explicit `x`, `y`, `width`, and
 `height`; its title appears in the top-left corner.
 
+Prefer a content-aware boundary when the group should track its members. Set
+`contains` to their node IDs and omit `x`, `y`, `width`, and `height`. The
+renderer derives the box with default margins of 60 px above (including the
+title), 20 px on each side, and 30 px below. Override any side in JSON with
+`"margin": {"top": 60, "right": 30, "bottom": 30, "left": 20}`; omitted
+sides retain their defaults. A single numeric `margin` applies equally to all
+four sides.
+
 Use `"variant": "attached"` in a manual layout for a small sidecar or agent
 that visually belongs to a larger card. Set `attach_to` to the parent node ID;
 `attach_side` can be `left`, `right`, `top`, or `bottom`, and defaults to
-`right`. The badge overlaps the parent by 20 px by default; customize that with
-`attach_overlap`. Its default size is 92×54 px, and edges connected to it start
-at the badge rather than the parent card.
+`right`. Set `attach_align` to `start`, `center`, or `end` to place it along
+that edge; `center` is the default, while `end` puts a right-side badge on the
+lower-right corner. The badge overlaps the parent by 20 px by default;
+customize that with `attach_overlap`. Its default size is 92×54 px, and edges
+connected to it start at the badge rather than the parent card.
 
 If a diagram needs an icon that is not available, create it instead of using
 an unrelated substitute. Add it to the renderer's icon library and accepted
@@ -65,6 +75,14 @@ Use `"variant": "plain"` for a card without its rectangle. It keeps the grid
 cell, icon column, and typography of a card but drops the fill, border, and
 shadow. Use it for row and stage labels that name a group of nodes instead of
 participating in the flow, and keep its subtitle on the title axis.
+
+Use `"variant": "specimen"` when the card should resemble the data it
+explains. Add a `specimen` object with a `mode` of `series`, `record`, or
+`waterfall` and exactly three short `items`. Series renders a small time-series
+chart and metric labels, record renders timestamped monospaced lines, and
+waterfall renders nested duration bars. Keep specimen cards at least 360×140
+px. Use them together when visual form teaches a distinction more clearly than
+parallel prose cards.
 
 In a grid or row-labelled manual diagram, use `"dividers": [{"after_row": 0}]` to separate rows with a
 dashed rule drawn halfway between that row and the one below. Prefer a divider

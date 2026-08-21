@@ -322,6 +322,7 @@ def test_parses_an_attached_node_without_manual_coordinates():
                     "variant": "attached",
                     "attach_to": "app",
                     "attach_side": "right",
+                    "attach_align": "end",
                 },
             ],
             "edges": [],
@@ -330,6 +331,7 @@ def test_parses_an_attached_node_without_manual_coordinates():
 
     assert spec.nodes[1].attach_to == "app"
     assert spec.nodes[1].attach_side == "right"
+    assert spec.nodes[1].attach_align == "end"
     assert spec.nodes[1].attach_overlap == 20
 
 
@@ -345,6 +347,92 @@ def test_rejects_an_attached_node_with_an_unknown_parent():
 
     with pytest.raises(SpecError, match="unknown parent node"):
         DiagramSpec.from_dict(data)
+
+
+def test_parses_content_aware_boundary_with_partial_margin_override():
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "manual"},
+            "nodes": [
+                {
+                    "id": "group",
+                    "title": "Group",
+                    "variant": "boundary",
+                    "contains": ["app"],
+                    "margin": {"right": 35},
+                },
+                {"id": "app", "title": "App", "x": 100, "y": 100},
+            ],
+            "edges": [],
+        }
+    )
+
+    boundary = spec.nodes[0]
+    assert boundary.contains == ("app",)
+    assert (boundary.margin.top, boundary.margin.right) == (60, 35)
+    assert (boundary.margin.bottom, boundary.margin.left) == (30, 20)
+
+
+def test_rejects_manual_geometry_on_a_content_aware_boundary():
+    data = {
+        "layout": {"type": "manual"},
+        "nodes": [
+            {
+                "id": "group",
+                "title": "Group",
+                "variant": "boundary",
+                "contains": ["app"],
+                "x": 20,
+            },
+            {"id": "app", "title": "App", "x": 100, "y": 100},
+        ],
+        "edges": [],
+    }
+
+    with pytest.raises(SpecError, match="cannot set x, y, width, or height"):
+        DiagramSpec.from_dict(data)
+
+
+def test_rejects_boundary_margin_on_an_ordinary_node():
+    data = {
+        "nodes": [
+            {"id": "app", "title": "App", "margin": 20},
+            {"id": "db", "title": "Database"},
+        ],
+        "edges": [{"from": "app", "to": "db"}],
+    }
+
+    with pytest.raises(SpecError, match="margin requires a content-aware boundary"):
+        DiagramSpec.from_dict(data)
+
+
+def test_parses_signal_specimen_data():
+    spec = DiagramSpec.from_dict(
+        {
+            "layout": {"type": "manual"},
+            "nodes": [
+                {"id": "app", "title": "Application", "x": 40, "y": 100},
+                {
+                    "id": "metrics",
+                    "title": "Metrics",
+                    "variant": "specimen",
+                    "x": 300,
+                    "y": 40,
+                    "width": 400,
+                    "height": 150,
+                    "specimen": {
+                        "mode": "series",
+                        "items": ["42 req/s", "180 ms", "3 errors"],
+                    },
+                },
+            ],
+            "edges": [{"from": "app", "to": "metrics"}],
+        }
+    )
+
+    assert spec.nodes[1].specimen is not None
+    assert spec.nodes[1].specimen.mode == "series"
+    assert spec.nodes[1].specimen.items == ("42 req/s", "180 ms", "3 errors")
 
 
 def test_parses_row_dividers_for_a_grid():

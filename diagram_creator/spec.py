@@ -15,8 +15,10 @@ LAYOUTS = {"horizontal", "manual", "grid", "ring", "staircase"}
 ROUTES = {"forward", "below", "straight", "curve", "orthogonal", "ring", "step"}
 STAIRCASE_DIRECTIONS = {"descending", "ascending"}
 ANCHORS = {"left", "left_top", "left_bottom", "right", "right_top", "right_bottom", "top", "bottom"}
-NODE_VARIANTS = {"card", "icon", "plain", "boundary", "attached"}
+NODE_VARIANTS = {"card", "icon", "plain", "boundary", "attached", "specimen"}
 ATTACH_SIDES = {"left", "right", "top", "bottom"}
+ATTACH_ALIGNS = {"start", "center", "end"}
+SPECIMEN_MODES = {"series", "record", "waterfall"}
 ICON_POSITIONS = {"inline", "block"}
 ICONS = {
     "alert",
@@ -84,6 +86,20 @@ class Layout:
 
 
 @dataclass(frozen=True)
+class BoundaryMargin:
+    top: float = 60
+    right: float = 20
+    bottom: float = 30
+    left: float = 20
+
+
+@dataclass(frozen=True)
+class Specimen:
+    mode: str
+    items: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Node:
     id: str
     title: str
@@ -96,7 +112,11 @@ class Node:
     icon_size: float | None = None
     attach_to: str | None = None
     attach_side: str = "right"
+    attach_align: str = "center"
     attach_overlap: float = 20
+    contains: tuple[str, ...] = ()
+    margin: BoundaryMargin = BoundaryMargin()
+    specimen: Specimen | None = None
     x: float | None = None
     y: float | None = None
     width: float | None = None
@@ -177,6 +197,20 @@ class DiagramSpec:
                 raise SpecError(f"attached node '{node.id}' cannot attach to itself")
             if node_by_id[node.attach_to].variant == "attached":
                 raise SpecError("attached nodes cannot attach to another attached node")
+        for node in nodes:
+            if not node.contains:
+                continue
+            if node.variant != "boundary":
+                raise SpecError(f"node '{node.id}' uses contains but is not a boundary")
+            if node.id in node.contains:
+                raise SpecError(f"boundary node '{node.id}' cannot contain itself")
+            unknown = [member for member in node.contains if member not in known_ids]
+            if unknown:
+                raise SpecError(
+                    f"boundary node '{node.id}' contains unknown node: {unknown[0]}"
+                )
+            if any(node_by_id[member].variant == "boundary" for member in node.contains):
+                raise SpecError("a content-aware boundary cannot contain another boundary")
         for edge in edges:
             if edge.source not in known_ids:
                 raise SpecError(f"edge references unknown source node: {edge.source}")
@@ -189,10 +223,19 @@ class DiagramSpec:
         layout = _parse_layout(data.get("layout", {}))
         if layout.type == "manual":
             for node in nodes:
-                if node.variant != "attached" and (node.x is None or node.y is None):
+                auto_positioned = node.variant == "attached" or (
+                    node.variant == "boundary" and bool(node.contains)
+                )
+                if not auto_positioned and (node.x is None or node.y is None):
                     raise SpecError("manual layout requires x and y for every node")
-        elif any(node.variant == "attached" for node in nodes):
-            raise SpecError("attached nodes currently require the manual layout")
+                if node.contains and any(
+                    value is not None for value in (node.x, node.y, node.width, node.height)
+                ):
+                    raise SpecError(
+                        f"content-aware boundary '{node.id}' cannot set x, y, width, or height"
+                    )
+        elif any(node.variant == "attached" or node.contains for node in nodes):
+            raise SpecError("attached nodes and content-aware boundaries require the manual layout")
         if layout.type == "grid":
             cells: set[tuple[int, int]] = set()
             for node in nodes:
@@ -329,7 +372,11 @@ def _parse_node(data: Any) -> Node:
     icon_size = _optional_number(data, "icon_size", f"node '{node_id}'")
     attach_to = data.get("attach_to")
     attach_side = data.get("attach_side", "right")
+    attach_align = data.get("attach_align", "center")
     attach_overlap = data.get("attach_overlap", 20)
+    raw_contains = data.get("contains", [])
+    margin = _parse_boundary_margin(data.get("margin"), f"node '{node_id}'")
+    specimen = _parse_specimen(data.get("specimen"), f"node '{node_id}'")
     if not isinstance(subtitle, str):
         raise SpecError(f"node '{node_id}' subtitle must be a string")
     if color not in COLORS:
@@ -344,11 +391,20 @@ def _parse_node(data: Any) -> Node:
         )
     if variant == "icon" and icon is None:
         raise SpecError(f"node '{node_id}' with icon variant requires an icon")
+    if variant == "specimen" and specimen is None:
+        raise SpecError(f"specimen node '{node_id}' requires specimen data")
+    if variant != "specimen" and specimen is not None:
+        raise SpecError(f"node '{node_id}' defines specimen data without the specimen variant")
     if variant == "attached" and not isinstance(attach_to, str):
         raise SpecError(f"attached node '{node_id}' requires attach_to")
     if attach_side not in ATTACH_SIDES:
         raise SpecError(
             f"node '{node_id}' attach_side must be one of: {', '.join(sorted(ATTACH_SIDES))}"
+        )
+    if attach_align not in ATTACH_ALIGNS:
+        raise SpecError(
+            f"node '{node_id}' attach_align must be one of: "
+            f"{', '.join(sorted(ATTACH_ALIGNS))}"
         )
     if (
         not isinstance(attach_overlap, (int, float))
@@ -356,6 +412,14 @@ def _parse_node(data: Any) -> Node:
         or attach_overlap < 0
     ):
         raise SpecError(f"node '{node_id}' attach_overlap must be a non-negative number")
+    if not isinstance(raw_contains, list) or not all(
+        isinstance(member, str) and member for member in raw_contains
+    ):
+        raise SpecError(f"node '{node_id}' contains must be a list of node IDs")
+    if len(set(raw_contains)) != len(raw_contains):
+        raise SpecError(f"node '{node_id}' contains must not repeat node IDs")
+    if "margin" in data and (variant != "boundary" or not raw_contains):
+        raise SpecError(f"node '{node_id}' margin requires a content-aware boundary")
     if not isinstance(show_label, bool):
         raise SpecError(f"node '{node_id}' show_label must be a boolean")
     if icon_size is not None and icon_size <= 0:
@@ -378,7 +442,11 @@ def _parse_node(data: Any) -> Node:
         icon_size=icon_size,
         attach_to=attach_to,
         attach_side=attach_side,
+        attach_align=attach_align,
         attach_overlap=float(attach_overlap),
+        contains=tuple(raw_contains),
+        margin=margin,
+        specimen=specimen,
         x=_optional_number(data, "x", f"node '{node_id}'"),
         y=_optional_number(data, "y", f"node '{node_id}'"),
         width=width,
@@ -386,6 +454,47 @@ def _parse_node(data: Any) -> Node:
         row=_optional_nonnegative_int(data, "row", f"node '{node_id}'"),
         column=_optional_nonnegative_int(data, "column", f"node '{node_id}'"),
     )
+
+
+def _parse_specimen(data: Any, context: str) -> Specimen | None:
+    if data is None:
+        return None
+    if not isinstance(data, dict):
+        raise SpecError(f"{context} specimen must be an object")
+    mode = data.get("mode")
+    if mode not in SPECIMEN_MODES:
+        raise SpecError(
+            f"{context} specimen mode must be one of: {', '.join(sorted(SPECIMEN_MODES))}"
+        )
+    items = data.get("items")
+    if not isinstance(items, list) or len(items) != 3 or not all(
+        isinstance(item, str) and item.strip() for item in items
+    ):
+        raise SpecError(f"{context} specimen items must contain exactly three strings")
+    return Specimen(mode=mode, items=tuple(items))
+
+
+def _parse_boundary_margin(data: Any, context: str) -> BoundaryMargin:
+    defaults = BoundaryMargin()
+    if data is None:
+        return defaults
+    if isinstance(data, (int, float)) and not isinstance(data, bool):
+        if data < 0:
+            raise SpecError(f"{context} margin must be non-negative")
+        value = float(data)
+        return BoundaryMargin(top=value, right=value, bottom=value, left=value)
+    if not isinstance(data, dict):
+        raise SpecError(f"{context} margin must be a number or an object")
+    unknown = set(data) - {"top", "right", "bottom", "left"}
+    if unknown:
+        raise SpecError(f"{context} margin has unknown side: {sorted(unknown)[0]}")
+    values = {}
+    for side in ("top", "right", "bottom", "left"):
+        value = data.get(side, getattr(defaults, side))
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
+            raise SpecError(f"{context} margin.{side} must be a non-negative number")
+        values[side] = float(value)
+    return BoundaryMargin(**values)
 
 
 def _optional_nonnegative_int(data: dict[str, Any], key: str, context: str) -> int | None:

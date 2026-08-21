@@ -152,6 +152,32 @@ def test_attached_node_overlaps_parent_and_connects_from_its_outer_edge(tmp_path
     assert svg.index('class="edge"') < svg.index('class="node-attached')
 
 
+def test_attached_node_can_align_to_the_end_of_its_parent_edge(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 300},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {"id": "app", "title": "Development", "x": 60, "y": 100},
+                {
+                    "id": "otel",
+                    "title": "OTel",
+                    "variant": "attached",
+                    "attach_to": "app",
+                    "attach_side": "right",
+                    "attach_align": "end",
+                },
+            ],
+            "edges": [],
+        }
+    )
+    output = tmp_path / "attached-end.svg"
+
+    render_diagram(spec, output)
+
+    assert 'class="node-attached node-blue" transform="translate(260 173)"' in output.read_text()
+
+
 def test_cli_renders_a_json_spec(tmp_path):
     source = tmp_path / "diagram.json"
     output = tmp_path / "diagram.png"
@@ -544,6 +570,99 @@ def test_renders_boundary_behind_edges_and_nodes(tmp_path):
     assert 'class="node-boundary node-blue"' in svg
     assert svg.index('class="node-boundary node-blue"') < svg.index('class="edge"')
     assert 'class="boundary-title"' in svg
+
+
+def test_content_aware_boundary_uses_consistent_default_margins(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 900, "height": 420},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {
+                    "id": "host",
+                    "title": "EC2 instance",
+                    "variant": "boundary",
+                    "contains": ["app", "db"],
+                },
+                {"id": "app", "title": "App", "x": 330, "y": 160},
+                {"id": "db", "title": "Postgres", "x": 600, "y": 160},
+            ],
+            "edges": [{"from": "app", "to": "db"}],
+        }
+    )
+    output = tmp_path / "content-aware-boundary.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'class="node-boundary node-blue" transform="translate(310 100)"' in svg
+    assert '<rect width="530" height="190"' in svg
+
+
+def test_renders_each_signal_specimen_as_its_own_visual_form(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 780, "height": 620},
+            "layout": {"type": "manual"},
+            "nodes": [
+                {"id": "app", "title": "Application", "x": 40, "y": 260},
+                {
+                    "id": "metrics",
+                    "title": "Metrics",
+                    "variant": "specimen",
+                    "x": 340,
+                    "y": 40,
+                    "width": 400,
+                    "height": 150,
+                    "specimen": {
+                        "mode": "series",
+                        "items": ["42 req/s", "180 ms", "3 errors"],
+                    },
+                },
+                {
+                    "id": "logs",
+                    "title": "Logs",
+                    "variant": "specimen",
+                    "x": 340,
+                    "y": 235,
+                    "width": 400,
+                    "height": 150,
+                    "specimen": {
+                        "mode": "record",
+                        "items": ["12:04:07 ERROR", "Database query failed", "room_id=184"],
+                    },
+                },
+                {
+                    "id": "traces",
+                    "title": "Traces",
+                    "variant": "specimen",
+                    "x": 340,
+                    "y": 430,
+                    "width": 400,
+                    "height": 150,
+                    "specimen": {
+                        "mode": "waterfall",
+                        "items": ["POST /rooms", "validate", "database"],
+                    },
+                },
+            ],
+            "edges": [
+                {"from": "app", "to": "metrics"},
+                {"from": "app", "to": "logs"},
+                {"from": "app", "to": "traces"},
+            ],
+        }
+    )
+    output = tmp_path / "specimens.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'class="node-specimen node-blue specimen-series"' in svg
+    assert 'class="node-specimen node-blue specimen-record"' in svg
+    assert 'class="node-specimen node-blue specimen-waterfall"' in svg
+    assert 'font-family="ui-monospace, SFMono-Regular, Menlo, monospace"' in svg
+    assert ">POST /rooms</text>" in svg
 
 
 def test_connector_crossing_a_boundary_gets_a_clear_port(tmp_path):
