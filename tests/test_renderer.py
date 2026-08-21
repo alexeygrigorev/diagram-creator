@@ -459,6 +459,8 @@ def test_renders_incident_trigger_symbols(tmp_path):
     svg = output.read_text()
     assert '<symbol id="icon-alert"' in svg
     assert '<symbol id="icon-queue"' in svg
+    assert 'd="M5 8C.3 8 .3 20 5 20"' in svg
+    assert '<ellipse cx="5" cy="14"' not in svg
     assert '<symbol id="icon-lambda"' in svg
     assert 'href="#icon-alert"' in svg
     assert 'href="#icon-queue"' in svg
