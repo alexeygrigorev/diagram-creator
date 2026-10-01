@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from diagram_creator.__version__ import __version__
 from diagram_creator.renderer import render_diagram, spec_advisories
 from diagram_creator.spec import SpecError, load_spec
+from diagram_creator.styles import STYLES
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,6 +18,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("output", help="Path for the generated SVG or PNG")
     parser.add_argument("--width", type=int, help="Override the JSON canvas width")
     parser.add_argument("--height", type=int, help="Override the JSON canvas height")
+    parser.add_argument(
+        "--style",
+        choices=sorted(STYLES),
+        help="Named visual style; overrides the JSON 'style' key (default: as written in JSON)",
+    )
     parser.add_argument("--version", action="version", version=__version__)
     return parser
 
@@ -26,7 +32,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         spec = load_spec(args.input)
-        output = render_diagram(spec, args.output, width=args.width, height=args.height)
+        output = render_diagram(
+            spec, args.output, width=args.width, height=args.height, style=args.style
+        )
         for note in spec_advisories(spec, width=args.width, height=args.height):
             print(f"note: {note}", file=sys.stderr)
     except (OSError, SpecError) as exc:

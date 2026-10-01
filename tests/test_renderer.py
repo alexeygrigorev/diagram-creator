@@ -1468,22 +1468,26 @@ def test_card_text_meets_wcag_aa_on_every_card_colour():
     # WCAG 1.4.3: body-sized text needs 4.5:1. The subtitle token used to be
     # #7a8699, which measured 3.36-3.52:1 against these fills - failing on every
     # diagram ever rendered, and invisible without computing it.
-    from diagram_creator.renderer import PALETTES, _style
+    from diagram_creator.renderer import _style
+    from diagram_creator.styles import STYLES
 
-    style = _style()
-    for role in ("node-subtitle", "eyebrow"):
-        colour = re.search(rf"\.{role} \{{[^}}]*fill: (#[0-9a-f]{{6}})", style).group(1)
-        for name, palette in PALETTES.items():
-            assert contrast(colour, palette.fill) >= 4.5, f"{role} on {name}"
+    for style in STYLES.values():
+        css = _style(style)
+        for role in ("node-subtitle", "eyebrow", "center-detail"):
+            colour = re.search(rf"\.{role} \{{[^}}]*fill: (#[0-9a-f]{{6}})", css).group(1)
+            for name, palette in style.palettes.items():
+                assert contrast(colour, palette.fill) >= 4.5, f"{style.name}: {role} on {name}"
 
 
 def test_card_borders_and_connectors_meet_non_text_contrast():
     # WCAG 1.4.11: graphics that carry meaning need 3:1.
-    from diagram_creator.renderer import PALETTES
+    from diagram_creator.styles import STYLES
 
-    for name, palette in PALETTES.items():
-        assert contrast(palette.stroke, palette.fill) >= 3.0, name
-        assert contrast(palette.stroke, "#ffffff") >= 3.0, name
+    for style in STYLES.values():
+        background = style.canvas_background
+        for name, palette in style.palettes.items():
+            assert contrast(palette.stroke, palette.fill) >= 3.0, f"{style.name}: {name}"
+            assert contrast(palette.stroke, background) >= 3.0, f"{style.name}: {name}"
 
 
 @pytest.mark.parametrize("source", EXAMPLE_SPECS, ids=lambda path: path.stem)
@@ -1769,3 +1773,65 @@ def test_advisories_stay_quiet_for_a_fitted_canvas():
     )
 
     assert spec_advisories(spec) == []
+
+
+def test_style_key_renders_with_the_named_palettes(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "style": "asl-dark",
+            "canvas": {"width": 900, "height": 320},
+            "nodes": [
+                {"id": "one", "title": "One", "color": "green"},
+                {"id": "two", "title": "Two"},
+            ],
+            "edges": [{"from": "one", "to": "two"}],
+        }
+    )
+    output = tmp_path / "styled.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert 'fill="#0a0a0a"' in svg  # canvas background inherited from the style
+    assert "#1a2e05" in svg  # asl-dark green fill
+    assert "#bfff00" in svg  # asl-dark green stroke
+    assert '"Inter"' in svg  # the ASL font stack
+
+
+def test_cli_style_flag_overrides_the_spec(tmp_path):
+    source = tmp_path / "spec.json"
+    source.write_text(
+        json.dumps(
+            {
+                "style": "default",
+                "canvas": {"width": 900, "height": 320},
+                "nodes": [
+                    {"id": "one", "title": "One", "color": "green"},
+                    {"id": "two", "title": "Two"},
+                ],
+                "edges": [{"from": "one", "to": "two"}],
+            }
+        )
+    )
+    output = tmp_path / "flagged.svg"
+
+    assert main([str(source), str(output), "--style", "asl-dark"]) == 0
+
+    svg = output.read_text()
+    assert "#1a2e05" in svg
+    assert '"Inter"' in svg
+
+
+def test_unknown_style_name_fails_cleanly(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "one", "title": "One"},
+                {"id": "two", "title": "Two"},
+            ],
+            "edges": [],
+        }
+    )
+
+    with pytest.raises(ValueError, match="unknown style"):
+        render_diagram(spec, tmp_path / "bad.svg", style="neon")

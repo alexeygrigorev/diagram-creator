@@ -5,11 +5,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from diagram_creator.styles import STYLES
+
 
 class SpecError(ValueError):
     """Raised when a diagram specification is invalid."""
 
 
+STYLE_NAMES = frozenset(STYLES)
 COLORS = {"purple", "blue", "amber", "green", "red", "gray"}
 LAYOUTS = {"horizontal", "manual", "grid", "ring", "staircase"}
 ROUTES = {"forward", "below", "straight", "curve", "orthogonal", "ring", "step"}
@@ -66,7 +69,8 @@ ICONS = {
 class Canvas:
     width: int = 1440
     height: int = 360
-    background: str = "#ffffff"
+    # None inherits the active style's canvas background at render time.
+    background: str | None = None
 
 
 @dataclass(frozen=True)
@@ -178,6 +182,7 @@ class DiagramSpec:
     description: str = ""
     center: CenterAnnotation | None = None
     dividers: tuple[Divider, ...] = ()
+    style: str = "default"
 
     @property
     def background(self) -> str:
@@ -232,6 +237,10 @@ class DiagramSpec:
             if edge.source == edge.target:
                 raise SpecError("an edge cannot connect a node to itself")
 
+        style_name = data.get("style", "default")
+        if style_name not in STYLE_NAMES:
+            raise SpecError(f"'style' must be one of: {', '.join(sorted(STYLE_NAMES))}")
+
         canvas = _parse_canvas(data)
         layout = _parse_layout(data.get("layout", {}))
         if layout.type == "manual":
@@ -279,6 +288,7 @@ class DiagramSpec:
             description=description,
             center=center,
             dividers=dividers,
+            style=style_name,
         )
 
 
@@ -288,12 +298,14 @@ def _parse_canvas(data: dict[str, Any]) -> Canvas:
         raise SpecError("'canvas' must be an object")
     width = raw.get("width", 1440)
     height = raw.get("height", 360)
-    background = raw.get("background", data.get("background", "#ffffff"))
+    # Left unset, the renderer inherits the active style's canvas background,
+    # so a --style override moves the background with it.
+    background = raw.get("background", data.get("background"))
     if not isinstance(width, int) or width < 600:
         raise SpecError("canvas width must be an integer of at least 600")
     if not isinstance(height, int) or height < 280:
         raise SpecError("canvas height must be an integer of at least 280")
-    if not isinstance(background, str):
+    if background is not None and not isinstance(background, str):
         raise SpecError("canvas background must be a color string")
     return Canvas(width=width, height=height, background=background)
 

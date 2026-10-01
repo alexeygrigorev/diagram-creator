@@ -540,3 +540,65 @@ def test_rejects_dividers_outside_a_grid_or_manual_layout():
 
     with pytest.raises(SpecError, match="requires the grid or manual layout"):
         DiagramSpec.from_dict(data)
+
+
+def test_defaults_to_the_default_style():
+    data = {
+        "nodes": [
+            {"id": "one", "title": "One"},
+            {"id": "two", "title": "Two"},
+        ],
+        "edges": [],
+    }
+
+    spec = DiagramSpec.from_dict(data)
+
+    assert spec.style == "default"
+    assert spec.canvas.background is None
+
+
+def test_parses_a_named_style_and_inherits_its_background():
+    data = {
+        "style": "asl-dark",
+        "nodes": [
+            {"id": "one", "title": "One"},
+            {"id": "two", "title": "Two"},
+        ],
+        "edges": [],
+    }
+
+    spec = DiagramSpec.from_dict(data)
+
+    assert spec.style == "asl-dark"
+    # The canvas background is inherited from the style at render time.
+    assert spec.canvas.background is None
+
+
+def test_explicit_background_beats_the_style_default():
+    data = {
+        "style": "asl-dark",
+        "canvas": {"background": "#111111"},
+        "nodes": [
+            {"id": "one", "title": "One"},
+            {"id": "two", "title": "Two"},
+        ],
+        "edges": [],
+    }
+
+    spec = DiagramSpec.from_dict(data)
+
+    assert spec.canvas.background == "#111111"
+
+
+def test_rejects_an_unknown_style():
+    data = {
+        "style": "neon",
+        "nodes": [
+            {"id": "one", "title": "One"},
+            {"id": "two", "title": "Two"},
+        ],
+        "edges": [],
+    }
+
+    with pytest.raises(SpecError, match="'style' must be one of"):
+        DiagramSpec.from_dict(data)

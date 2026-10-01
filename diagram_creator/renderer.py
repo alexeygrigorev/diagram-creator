@@ -12,12 +12,11 @@ from importlib.resources import files
 from pathlib import Path
 
 from diagram_creator.spec import CenterAnnotation, DiagramSpec, Edge, Node, SpecError
+from diagram_creator.styles import Palette, Style, resolve_style
 
-
-@dataclass(frozen=True)
-class Palette:
-    fill: str
-    stroke: str
+# Backwards-compatible aliases: the default style's palettes, for callers that
+# imported them before named styles existed.
+PALETTES = resolve_style("default").palettes
 
 
 @dataclass(frozen=True)
@@ -44,16 +43,7 @@ class Box:
         return self.y + self.height / 2
 
 
-PALETTES = {
-    "purple": Palette("#f5f3ff", "#7c3aed"),
-    "blue": Palette("#eff6ff", "#2563eb"),
-    "amber": Palette("#fff7ed", "#c2410c"),
-    "green": Palette("#ecfdf5", "#15803d"),
-    "red": Palette("#fef2f2", "#dc2626"),
-    "gray": Palette("#f8fafc", "#64748b"),
-}
-
-EDGE_COLORS = {name: palette.stroke for name, palette in PALETTES.items()}
+EDGE_COLORS = {name: palette.stroke for name, palette in PALETTES.items()}  # deprecated alias
 RING_MARGIN = 40
 RING_EDGE_GAP = 0
 RING_ARC_SAMPLES = 240
@@ -69,6 +59,8 @@ ICON_GUTTER = 12
 ICON_SIZE = 34
 TITLE_SIZE, TITLE_WEIGHT = 20, 750
 SUBTITLE_SIZE, SUBTITLE_WEIGHT = 16, 500
+BOUNDARY_TITLE_SIZE, BOUNDARY_TITLE_WEIGHT = 16, 750
+BOUNDARY_TITLE_SIDE_PADDING = 20
 # Below these the figure stops being readable at the 768px reading column, so a
 # card that cannot fit its text at this size is an error rather than a shrink.
 TITLE_SIZE_FLOOR, SUBTITLE_SIZE_FLOOR = 13, 11
@@ -340,8 +332,13 @@ def render_diagram(
     *,
     width: int | None = None,
     height: int | None = None,
+    style: str | None = None,
 ) -> Path:
-    """Render one JSON-backed diagram as SVG or a Chromium-matched PNG."""
+    """Render one JSON-backed diagram as SVG or a Chromium-matched PNG.
+
+    ``style`` overrides the spec's named style; the resolved style decides
+    every color, font, and the default canvas background.
+    """
     canvas_width = spec.canvas.width if width is None else width
     canvas_height = spec.canvas.height if height is None else height
     _validate_canvas(canvas_width, canvas_height)
@@ -352,7 +349,9 @@ def render_diagram(
         raise SpecError("output must have an .svg or .png extension")
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    svg = render_svg_text(spec, width=canvas_width, height=canvas_height)
+    style = resolve_style(style if style is not None else spec.style)
+    canvas_background = spec.canvas.background or style.canvas_background
+    svg = render_svg_text(spec, width=canvas_width, height=canvas_height, style_name=style)
     if suffix == ".svg":
         destination.write_text(svg)
         return destination
@@ -363,7 +362,7 @@ def render_diagram(
         source = Path(raw) / "diagram.svg"
         source.write_text(svg)
         staged = Path(raw) / "diagram.png"
-        _render_png(source, staged, canvas_width, canvas_height, spec.canvas.background)
+        _render_png(source, staged, canvas_width, canvas_height, canvas_background)
         shutil.copyfile(staged, destination)
     return destination
 
@@ -429,10 +428,17 @@ def render_svg_text(
     *,
     width: int | None = None,
     height: int | None = None,
+    style_name: str | Style | None = None,
 ) -> str:
     canvas_width = spec.canvas.width if width is None else width
     canvas_height = spec.canvas.height if height is None else height
     _validate_canvas(canvas_width, canvas_height)
+    style = (
+        style_name
+        if isinstance(style_name, Style)
+        else resolve_style(style_name if style_name is not None else spec.style)
+    )
+    background = spec.canvas.background or style.canvas_background
     boxes = _layout(spec, canvas_width, canvas_height)
     connector_boxes = _connector_boxes(spec, boxes)
     symbols = _symbols_for(spec)
@@ -440,7 +446,7 @@ def render_svg_text(
         f'<marker id="arrow-{name}" viewBox="0 0 10 10" refX="9" refY="5" '
         'markerWidth="9" markerHeight="9" orient="auto">'
         f'<path d="M0 0 10 5 0 10Z" fill="{color}"/></marker>'
-        for name, color in EDGE_COLORS.items()
+        for name, color in style.edge_colors.items()
     )
     start_marker_colors = {edge.color for edge in spec.edges if edge.bidirectional}
     start_markers = "\n".join(
@@ -460,25 +466,25 @@ def render_svg_text(
         f'  <desc id="desc">{escape(description)}</desc>',
         "  <defs>",
         '    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">',
-        '      <feDropShadow dx="0" dy="4" stdDeviation="5" '
-        'flood-color="#0f172a" flood-opacity="0.08"/>',
+        f'      <feDropShadow dx="0" dy="4" stdDeviation="5" '
+        f'flood-color="{style.shadow_color}" flood-opacity="{style.shadow_opacity}"/>',
         "    </filter>",
         _indent(marker_defs, 4),
         _indent(symbols, 4),
-        _indent(_style(), 4),
+        _indent(_style(style), 4),
         "  </defs>",
-        f'  <rect width="{canvas_width}" height="{canvas_height}" '
-        f'fill="{escape(spec.canvas.background)}"/>',
+        f'  <rect width="{canvas_width}" height="{canvas_height}" fill="{escape(background)}"/>',
         "",
     ]
     parts.extend(
-        _draw_boundary_node(node, boxes[node.id])
+        _draw_boundary_node(node, boxes[node.id], style)
         for node in spec.nodes
         if node.variant == "boundary"
     )
     parts.extend(_draw_dividers(spec, boxes, canvas_width))
     parts.extend(
-        _draw_edge(spec, edge, connector_boxes, canvas_width, canvas_height) for edge in spec.edges
+        _draw_edge(spec, edge, connector_boxes, canvas_width, canvas_height, style)
+        for edge in spec.edges
     )
     if spec.center is not None:
         parts.extend(("", _draw_center(spec, canvas_width, canvas_height)))
@@ -490,6 +496,7 @@ def render_svg_text(
         _draw_node(
             node,
             boxes[node.id],
+            style,
             spec.layout.font_scale,
             title_size,
             subtitle_size,
@@ -500,7 +507,7 @@ def render_svg_text(
         if node.variant not in {"boundary", "attached"}
     )
     parts.extend(
-        _draw_attached_node(node, boxes[node.id], spec.layout.font_scale)
+        _draw_attached_node(node, boxes[node.id], style, spec.layout.font_scale)
         for node in spec.nodes
         if node.variant == "attached"
     )
@@ -1004,17 +1011,18 @@ def _card_subtitle_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
 def _draw_node(
     node: Node,
     box: Box,
+    style: Style,
     scale: float = 1.0,
     title_size: int | None = None,
     subtitle_size: int | None = None,
     stacked: bool = False,
     fixed_icon_axis: bool = False,
 ) -> str:
-    palette = PALETTES[node.color]
+    palette = style.palettes[node.color]
     if node.variant == "icon":
         return _draw_icon_node(node, box, palette)
     if node.variant == "specimen":
-        return _draw_specimen_node(node, box, palette, scale)
+        return _draw_specimen_node(node, box, palette, style, scale)
     plain = node.variant == "plain"
     # One scale drives glyph sizes and the vertical rhythm together, so a card
     # with bigger type keeps the same proportions rather than just crowding.
@@ -1120,8 +1128,8 @@ def _draw_node(
     return "\n".join(lines)
 
 
-def _draw_boundary_node(node: Node, box: Box) -> str:
-    palette = PALETTES[node.color]
+def _draw_boundary_node(node: Node, box: Box, style: Style) -> str:
+    palette = style.palettes[node.color]
     return "\n".join(
         [
             f'  <g class="node-boundary node-{escape(node.color)}" '
@@ -1134,9 +1142,9 @@ def _draw_boundary_node(node: Node, box: Box) -> str:
     )
 
 
-def _draw_attached_node(node: Node, box: Box, scale: float = 1.0) -> str:
+def _draw_attached_node(node: Node, box: Box, style: Style, scale: float = 1.0) -> str:
     """Draw a small sidecar badge that overlaps the edge of its parent card."""
-    palette = PALETTES[node.color]
+    palette = style.palettes[node.color]
     title_size = round(16 * scale)
     title_y = box.height / 2 + title_size * CAP_HALF
     return "\n".join(
@@ -1153,7 +1161,9 @@ def _draw_attached_node(node: Node, box: Box, scale: float = 1.0) -> str:
     )
 
 
-def _draw_specimen_node(node: Node, box: Box, palette: Palette, scale: float = 1.0) -> str:
+def _draw_specimen_node(
+    node: Node, box: Box, palette: Palette, style: Style, scale: float = 1.0
+) -> str:
     """Draw a compact card whose visual form resembles the signal it explains."""
     if box.width < 360 or box.height < 140:
         raise SpecError(f"specimen node '{node.id}' requires at least 360x140")
@@ -1166,14 +1176,14 @@ def _draw_specimen_node(node: Node, box: Box, palette: Palette, scale: float = 1
         f'    <rect width="{_number(box.width)}" height="{_number(box.height)}" '
         f'rx="18" fill="{palette.fill}" stroke="{palette.stroke}"/>',
         f'    <text x="24" y="31" font-size="{title_size}" font-weight="750" '
-        f'text-anchor="start" fill="#172033">{escape(node.title)}</text>',
+        f'text-anchor="start" fill="{style.text}">{escape(node.title)}</text>',
     ]
     if node.specimen.mode == "series":
         lines.extend(
             [
-                '    <path d="M24 122V51M24 122H190" fill="none" stroke="#94a3b8" '
+                f'    <path d="M24 122V51M24 122H190" fill="none" stroke="{style.specimen_axis}" '
                 'stroke-width="1.5"/>',
-                '    <path d="M24 98H190M24 74H190" fill="none" stroke="#cbd5e1" '
+                f'    <path d="M24 98H190M24 74H190" fill="none" stroke="{style.specimen_gridline}" '
                 'stroke-width="1" stroke-dasharray="4 5"/>',
                 f'    <path d="M28 108L52 101L76 104L100 84L124 89L148 63L186 70" '
                 f'fill="none" stroke="{palette.stroke}" stroke-width="2.5" '
@@ -1191,13 +1201,14 @@ def _draw_specimen_node(node: Node, box: Box, palette: Palette, scale: float = 1
                     f'    <line x1="220" y1="{y - 5}" x2="236" y2="{y - 5}" '
                     f'stroke="{palette.stroke}" stroke-width="2.5"{dash}/>',
                     f'    <text x="246" y="{y}" font-size="{item_size}" font-weight="600" '
-                    f'text-anchor="start" fill="#475569">{escape(item)}</text>',
+                    f'text-anchor="start" fill="{style.specimen_item}">{escape(item)}</text>',
                 ]
             )
     elif node.specimen.mode == "record":
         lines.append(
             f'    <rect x="20" y="46" width="{_number(box.width - 40)}" height="84" '
-            'rx="10" fill="#ffffff" stroke="#cbd5e1"/>'
+            f'rx="10" fill="{style.specimen_record_fill}" '
+            f'stroke="{style.specimen_record_border}"/>'
         )
         for index, item in enumerate(node.specimen.items):
             y = 70 + index * 25
@@ -1205,8 +1216,8 @@ def _draw_specimen_node(node: Node, box: Box, palette: Palette, scale: float = 1
                 [
                     f'    <circle cx="34" cy="{y - 5}" r="3" fill="{palette.stroke}"/>',
                     f'    <text x="46" y="{y}" font-size="{item_size}" font-weight="500" '
-                    'font-family="ui-monospace, SFMono-Regular, Menlo, monospace" '
-                    f'text-anchor="start" fill="#475569">{escape(item)}</text>',
+                    f'font-family="{style.mono_font_family}" '
+                    f'text-anchor="start" fill="{style.specimen_item}">{escape(item)}</text>',
                 ]
             )
     else:
@@ -1217,7 +1228,7 @@ def _draw_specimen_node(node: Node, box: Box, palette: Palette, scale: float = 1
             lines.extend(
                 [
                     f'    <text x="24" y="{y}" font-size="{item_size}" font-weight="600" '
-                    f'text-anchor="start" fill="#475569">{escape(item)}</text>',
+                    f'text-anchor="start" fill="{style.specimen_item}">{escape(item)}</text>',
                     f'    <rect x="{160 + indents[index]}" y="{y - 13}" '
                     f'width="{bar_widths[index]}" height="14" rx="7" '
                     f'fill="{palette.stroke}" fill-opacity="{0.9 - index * 0.2}"/>',
@@ -1317,6 +1328,7 @@ def _draw_edge(
     boxes: dict[str, Box],
     width: int,
     height: int,
+    style: Style,
 ) -> str:
     if spec.layout.type == "ring":
         route = "ring" if edge.route in {"forward", "ring"} else edge.route
@@ -1335,7 +1347,7 @@ def _draw_edge(
         path, label_point = _orthogonal_path(edge, boxes)
     else:
         path, label_point = _direct_path(edge, boxes, curved=route == "curve")
-    color = EDGE_COLORS[edge.color]
+    color = style.edge_colors[edge.color]
     marker_start = f' marker-start="url(#arrow-start-{edge.color})"' if edge.bidirectional else ""
     marker_end = f' marker-end="url(#arrow-{edge.color})"' if edge.directed else ""
     dash = ' stroke-dasharray="8 8"' if edge.dashed else ""
@@ -1343,7 +1355,8 @@ def _draw_edge(
     parts = []
     if _edge_crosses_boundary(spec, edge, boxes):
         parts.append(
-            f'  <path class="edge-boundary-halo" d="{path}" fill="none" stroke="#ffffff" '
+            f'  <path class="edge-boundary-halo" d="{path}" fill="none" '
+            f'stroke="{style.boundary_halo}" '
             'stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>'
         )
     parts.append(line)
@@ -1361,7 +1374,7 @@ def _draw_edge(
             f'  <g class="edge-label" transform="translate({_number(x)} {_number(y)})">',
             f'    <rect x="{_number(-pill_width / 2)}" y="{_number(-EDGE_LABEL_HEIGHT / 2)}" '
             f'width="{_number(pill_width)}" height="{EDGE_LABEL_HEIGHT}" '
-            f'rx="{EDGE_LABEL_HEIGHT / 2}" fill="#ffffff" stroke="{color}"/>',
+            f'rx="{EDGE_LABEL_HEIGHT / 2}" fill="{style.edge_label_fill}" stroke="{color}"/>',
             f'    <text fill="{color}">{label}</text>',
             "  </g>",
         )
@@ -1805,27 +1818,27 @@ def _icons_path() -> Path:
     raise SpecError("the bundled icon library could not be found")
 
 
-def _style() -> str:
-    return """<style>
-  text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172033; }
-  symbol [stroke] { vector-effect: non-scaling-stroke; }
-  .node rect { stroke-width: 2; }
-  .node-boundary rect { stroke-width: 2; stroke-dasharray: 8 8; }
-  .boundary-title { font-size: 16px; font-weight: 750; text-anchor: start; }
-  .node-title { font-size: 20px; font-weight: 750; text-anchor: middle; }
-  .node-title.icon-copy { text-anchor: start; }
-  .node-subtitle { font-size: 16px; font-weight: 500; fill: #475569; text-anchor: middle; }
-  .eyebrow { font-size: 13px; font-weight: 750; letter-spacing: 1px; fill: #475569; text-anchor: middle; }
-  .mention-icon { font-size: 27px; font-weight: 750; text-anchor: middle; }
-  .standalone-mention { font-size: 52px; font-weight: 750; text-anchor: middle; }
-  .icon-node-title { font-size: 16px; font-weight: 750; text-anchor: middle; }
-  .edge { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-  .edge-label rect { stroke-width: 2; }
-  .edge-label text { font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }
-  .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }
-  .center-annotation { fill: #f1f5f9; stroke: none; }
-  .center-title { font-weight: 800; letter-spacing: 0.08em; fill: #334155; text-anchor: middle; }
-  .center-detail { font-weight: 600; fill: #475569; text-anchor: middle; }
+def _style(style: Style) -> str:
+    return f"""<style>
+  text {{ font-family: {style.font_family}; fill: {style.text}; }}
+  symbol [stroke] {{ vector-effect: non-scaling-stroke; }}
+  .node rect {{ stroke-width: 2; }}
+  .node-boundary rect {{ stroke-width: 2; stroke-dasharray: 8 8; }}
+  .boundary-title {{ font-size: {BOUNDARY_TITLE_SIZE}px; font-weight: {BOUNDARY_TITLE_WEIGHT}; text-anchor: start; }}
+  .node-title {{ font-weight: 750; text-anchor: middle; }}
+  .node-title.icon-copy {{ text-anchor: start; }}
+  .node-subtitle {{ font-weight: 500; fill: {style.muted}; text-anchor: middle; }}
+  .eyebrow {{ font-weight: 750; letter-spacing: 1px; fill: {style.muted}; text-anchor: middle; }}
+  .mention-icon {{ font-size: 27px; font-weight: 750; text-anchor: middle; }}
+  .standalone-mention {{ font-size: 52px; font-weight: 750; text-anchor: middle; }}
+  .icon-node-title {{ font-size: 16px; font-weight: 750; text-anchor: middle; }}
+  .edge {{ fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }}
+  .edge-label rect {{ stroke-width: 2; }}
+  .edge-label text {{ font-size: 14px; font-weight: 750; text-anchor: middle; dominant-baseline: central; }}
+  .divider {{ stroke: {style.divider}; stroke-width: 2; stroke-dasharray: 6 8; stroke-linecap: round; }}
+  .center-annotation {{ fill: {style.center_fill}; stroke: none; }}
+  .center-title {{ font-weight: 800; letter-spacing: 0.08em; fill: {style.center_title}; text-anchor: middle; }}
+  .center-detail {{ font-weight: 600; fill: {style.muted}; text-anchor: middle; }}
 </style>"""
 
 
