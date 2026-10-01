@@ -1,232 +1,166 @@
 # Diagram Creator
 
 [![tests](https://github.com/alexeygrigorev/diagram-creator/actions/workflows/tests.yml/badge.svg)](https://github.com/alexeygrigorev/diagram-creator/actions/workflows/tests.yml)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+[![style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-Diagram Creator turns a compact JSON specification into a deterministic SVG or
-PNG. The same renderer handles horizontal workflows, explicitly positioned
-rows and columns, and circular loops with reusable icons.
+Workflow diagrams from a small JSON file — deterministic SVG and PNG output,
+with layout, icons, arrows, and text fitting handled by the renderer instead of
+your mouse.
+
+![Feature delivery workflow with a test failure loop](examples/agent-workflow.png)
+
+Because the diagram *is* code, it lives in your repository: the spec diffs in
+pull requests, the output is reproducible, and regenerating every figure in a
+project is a one-line loop. When a layout cannot fit, the renderer refuses with
+a suggested canvas size instead of producing a broken image.
 
 ## Quick start
 
-Install the project and render an example:
+No install, if you have [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv sync --dev
-uv run diagram-creator examples/faq-curation-loop.json examples/faq-curation-loop.svg
+uvx --from git+https://github.com/alexeygrigorev/diagram-creator \
+  diagram-creator spec.json diagram.png
 ```
 
-Choose the format with the output extension. PNG output is rendered from the
-same SVG with Chromium, so both formats use identical layout, fonts, and icons:
+Or clone and work on the project itself:
 
 ```bash
-uv run diagram-creator input.json output.svg
-uv run diagram-creator input.json output.png
+git clone https://github.com/alexeygrigorev/diagram-creator
+cd diagram-creator && uv sync --dev
+uv run diagram-creator examples/faq-curation-loop.json examples/faq-curation-loop.png
 ```
 
-Canvas dimensions belong in JSON. `--width` and `--height` can override them
-for a one-off render.
+The output format follows the file extension. `.svg` writes vector graphics;
+`.png` rasterizes the same SVG with headless Chromium (any of `chromium`,
+`chromium-browser`, `google-chrome`, or `google-chrome-stable` on `PATH`), so
+both formats always agree on layout, fonts, and icons.
 
-The CLI prints `note:` advisories on stderr when a spec renders but will read
-worse than it could: a manual-layout canvas visibly larger than its content, or
-a missing `description` (which becomes the SVG `<desc>` and the article's alt
-text). Advisories never fail the render; fix the spec and rerun.
+`--width` and `--height` override the JSON canvas for a one-off render,
+`--style` switches the visual style, and `--version` prints the version.
 
 ## Examples
 
-Each image below is generated from the linked JSON source.
+Every image below is generated from the linked JSON source.
 
-### Horizontal workflow
-
-The default layout evenly spaces a workflow from left to right and can route a
-feedback edge below the main flow.
+**Horizontal** — the default layout spaces a pipeline left to right and can
+route a feedback edge below the main flow:
 
 ![Horizontal agent workflow with a feedback edge](examples/agent-workflow.png)
+[JSON](examples/agent-workflow.json) · [SVG](examples/agent-workflow.svg)
 
-[JSON source](examples/agent-workflow.json) · [SVG output](examples/agent-workflow.svg)
-
-### Manual rows and columns
-
-Manual layout gives nodes explicit positions while retaining the same cards,
-icons, anchors, and curved connectors.
+**Manual** — explicit `x`/`y` positions, same cards, icons, anchors, and curved
+connectors:
 
 ![Three knowledge sources merging into an index and FAQ assistant](examples/manual-pipeline.png)
+[JSON](examples/manual-pipeline.json) · [SVG](examples/manual-pipeline.svg)
 
-[JSON source](examples/manual-pipeline.json) · [SVG output](examples/manual-pipeline.svg)
-
-### Staircase
-
-Staircase layout cascades equal cards one step right and one step down, and
-joins each pair with a single elbow. Set `"direction": "ascending"` to climb
-from the bottom left to the top right instead.
+**Staircase** — equal cards cascade one step right and one step down, joined by
+single elbows; `"direction": "ascending"` climbs instead:
 
 ![Seven interview stages descending from left to right](examples/interview-stages.png)
-
-[JSON source](examples/interview-stages.json) · [SVG output](examples/interview-stages.svg)
+[JSON](examples/interview-stages.json) · [SVG](examples/interview-stages.svg)
 
 ![Five analytics maturity stages climbing from left to right](examples/analytics-maturity.png)
+[JSON](examples/analytics-maturity.json) · [SVG](examples/analytics-maturity.svg)
 
-[JSON source](examples/analytics-maturity.json) · [SVG output](examples/analytics-maturity.svg)
-
-### Circular improvement loop
-
-Ring layout spaces equal cards evenly on a circle and draws every connector as
-an arc of that same circle.
+**Ring** — equal cards spaced on a real circle, connectors drawn as arcs of
+that same circle, around a center annotation:
 
 ![FAQ curation and improvement loop](examples/faq-curation-loop.png)
+[JSON](examples/faq-curation-loop.json) · [SVG](examples/faq-curation-loop.svg)
 
-[JSON source](examples/faq-curation-loop.json) · [SVG output](examples/faq-curation-loop.svg)
+## The spec in one minute
 
-## Diagram specification
-
-Every diagram has nodes and edges. The original compact form remains valid and
-uses a 1440×360 horizontal layout:
-
-Set `"bidirectional": true` on an edge to render a single straight or curved
-connector with arrowheads at both ends.
+Every diagram is nodes and edges. This minimal spec is valid as-is and renders
+as a 1440×360 horizontal pipeline:
 
 ```json
 {
+  "title": "Feature delivery",
+  "description": "One sentence a reader should take away; becomes the SVG <desc> and image alt text.",
   "nodes": [
     {"id": "plan", "title": "Plan", "subtitle": "PM", "color": "purple"},
-    {"id": "build", "title": "Build", "subtitle": "Engineer", "color": "blue"}
+    {"id": "build", "title": "Build", "subtitle": "Engineer", "color": "blue"},
+    {"id": "ship", "title": "Ship", "color": "green"}
   ],
   "edges": [
     {"from": "plan", "to": "build"},
-    {"from": "build", "to": "plan", "label": "FAIL", "color": "red", "route": "below"}
+    {"from": "build", "to": "plan", "label": "FAIL", "color": "red", "route": "below"},
+    {"from": "build", "to": "ship"}
   ]
 }
 ```
 
-Use a ring layout for an improvement cycle. Nodes are declared clockwise
-starting at the top, and the renderer spaces them evenly on a real circle:
+Everything else is optional and additive: canvas and layout at the top level,
+then per-node and per-edge options.
 
-```json
-{
-  "title": "Continuous improvement loop",
-  "canvas": {"width": 940, "height": 800, "background": "#ffffff"},
-  "layout": {"type": "ring", "card_width": 260, "card_height": 100},
-  "nodes": [
-    {"id": "one", "title": "Contribute", "color": "blue", "icon": "issue"},
-    {"id": "two", "title": "Curate", "color": "purple", "icon": "message"},
-    {"id": "three", "title": "Deploy", "color": "green", "icon": "database"},
-    {"id": "four", "title": "Answer", "color": "purple", "icon": "mention"},
-    {"id": "five", "title": "Evaluate", "color": "red", "icon": "warning"}
-  ],
-  "edges": [
-    {"from": "one", "to": "two", "route": "ring"},
-    {"from": "two", "to": "three", "route": "ring"},
-    {"from": "three", "to": "four", "route": "ring"},
-    {"from": "four", "to": "five", "route": "ring"},
-    {"from": "five", "to": "one", "route": "ring"}
-  ],
-  "center": {"title": "CURATION", "subtitle": "LOOP", "detail": "Keep improving"}
-}
-```
+### Nodes
 
-The complete source for the diagram above is
-[`examples/faq-curation-loop.json`](examples/faq-curation-loop.json).
+| Field | Meaning |
+| --- | --- |
+| `id`, `title`, `subtitle` | Identity and card text; titles are auto-fitted, never squeezed |
+| `color` | `purple`, `blue`, `amber`, `green`, `red`, `gray` |
+| `icon` | One of the [icon names](#icons) below |
+| `eyebrow` | Small line above the title |
+| `x`, `y`, `width`, `height` | Position and size (manual layout) |
+| `row`, `column` | Position (grid layout) |
+| `variant` | `card` (default), `icon`, `plain`, `boundary`, `attached`, `specimen` |
+| `show_label`, `icon_size` | For `icon` variant: hide the caption, resize the symbol |
 
-Use a staircase for stages that only move forward. Nodes are declared in step
-order and the renderer cascades them, so edges need no route of their own:
+The canvas is `"canvas": {"width": ..., "height": ..., "background": ...}`;
+without one you get the 1440×360 horizontal default. Titles and subtitles are
+never stretched or squeezed: each diagram picks one title size and one subtitle
+size — the largest that fits every card — so type stays consistent and every
+glyph keeps its natural width.
 
-```json
-{
-  "title": "Interview stages",
-  "canvas": {"width": 1680, "height": 880, "background": "#ffffff"},
-  "layout": {"type": "staircase", "direction": "descending", "card_width": 320, "card_height": 96},
-  "nodes": [
-    {"id": "recruiter", "title": "Recruiter", "subtitle": "Background and fit", "icon": "number-1"},
-    {"id": "theory", "title": "Theory", "subtitle": "LLMs and RAG", "icon": "number-2"},
-    {"id": "coding", "title": "Coding", "subtitle": "Python and SQL", "icon": "number-3"}
-  ],
-  "edges": [
-    {"from": "recruiter", "to": "theory"},
-    {"from": "theory", "to": "coding"}
-  ]
-}
-```
+### Edges
 
-### Layouts
+| Field | Meaning |
+| --- | --- |
+| `from`, `to` | Node ids |
+| `label` | Short pill label, measured so it cannot cover an arrowhead or a card |
+| `color` | Semantic edge color |
+| `route` | `forward` (default), `below`, `straight`, `curve`, `orthogonal`, `ring`, `step` |
+| `from_anchor`, `to_anchor` | `left`, `left_top`, `left_bottom`, `right`, `right_top`, `right_bottom`, `top`, `bottom` |
+| `controls` | Exactly two absolute `[x, y]` points, for `curve` |
+| `dashed`, `directed`, `bidirectional` | Dashed stroke, no arrowheads, arrowheads on both ends |
 
-- `horizontal` places every node in one evenly spaced row.
-- `ring` spaces three or more cards evenly on a circle, clockwise from the top,
-  around a center annotation. The renderer fits the largest circle the canvas
-  allows, so give a ring a roughly square canvas - a wide one only adds side
-  margins. Set `margin` to change the gap kept around the cards, which defaults
-  to 40. Rendering fails with a suggested canvas size when the cards would
-  overlap.
-- `staircase` cascades equal cards one step right and one step down, in JSON
-  order. `direction` is `descending` (top left to bottom right) or `ascending`
-  (bottom left to top right). The renderer spreads the treads over the canvas
-  width, stopping before consecutive cards pull apart, and keeps a riser of the
-  card height plus 18 px. Set `step_x` and `step_y` for exact advances, and
-  `margin` to change the 40 px gap kept around the cards. Rendering fails with a
-  suggested canvas size when the cascade does not fit.
-- `grid` places nodes by `row` and `column`, sizes each column and row to its
-  largest node, and preserves equal `column_gap` and `row_gap` gutters. Set
-  `column_width` and `row_height` when every grid cell should use fixed dimensions.
-- `manual` uses each node's `x` and `y`; set shared `card_width` and
-  `card_height` in `layout`, or override `width` and `height` on a node.
+`forward` draws a straight arrow in row-like layouts; inside a staircase it
+becomes a `step`, which leaves one card through its side, turns once halfway
+across the gap, and enters the next card's top or bottom (also usable in grid
+and manual layouts). `orthogonal` draws a deliberate 90° elbow, `below` loops a
+feedback edge under the main flow, and `curve` with explicit `controls` covers
+the rare relationship the others cannot express.
 
-Two layout options apply to cards in any layout. `font_scale` scales card type
-and its vertical rhythm together, for a diagram that has to stay legible after
-being scaled down to a phone. `icon_position` is `inline` (icon beside the
-title) or `block` (icon over a centered title); `block` needs roughly half the
-card width for the same title, which makes cards squarer and fills a square card
-better.
+## Layouts
 
-Titles and subtitles are never stretched or squeezed. Each diagram picks one
-title size and one subtitle size - the largest that fits every card
-undistorted - so the type stays consistent and every glyph keeps its natural
-width.
+| Type | Use it for | Key options |
+| --- | --- | --- |
+| `horizontal` (default) | Left-to-right pipelines | — |
+| `grid` | Rows × columns with aligned cells | `row`, `column` per node; `column_gap`, `row_gap`, or fixed `column_width` / `row_height` |
+| `staircase` | Sequential stages | `direction` (`descending` / `ascending`), `step_x`, `step_y`, `margin` |
+| `ring` | Improvement cycles (3+ nodes) | `card_width`, `card_height`, `margin`, `center` annotation |
+| `manual` | Full placement control | `x`, `y` per node; shared `card_width` / `card_height`; `dividers` |
 
-Grid and manual layouts default to a fixed icon axis: comparable cards use one
-shared icon column and one shared title column instead of centering each
-icon-title pair independently. Set `"fixed_icon_axis": false` to restore
-per-card optical centering, or `true` to opt an automatic layout in.
+Ring layout spaces cards evenly on a circle, clockwise from the top, around a
+`center` annotation, and fits the largest circle the canvas allows — give a
+ring a roughly square canvas; a wide one only adds side margins. Staircase
+cascades cards in JSON order, spreads the treads over the canvas width, and
+supports exact advances via `step_x`/`step_y`. When a ring or staircase cannot
+fit, rendering fails with a suggested canvas size.
 
-Manual layouts still use reusable cards and icons—the JSON controls placement,
-not raw SVG markup:
+Two card options work in any layout. `font_scale` scales card type and its
+vertical rhythm together, for a diagram that must stay legible on a phone.
+`icon_position: "block"` puts the icon over a centered title and needs roughly
+half the card width of `inline`, which makes cards squarer. Grid and manual
+layouts share one icon and title axis across comparable cards; set
+`"fixed_icon_axis": false` for per-card optical centering, or `true` to opt an
+automatic layout in.
 
-```json
-{
-  "canvas": {"width": 940, "height": 280},
-  "layout": {"type": "manual", "card_width": 220, "card_height": 100},
-  "nodes": [
-    {"id": "source", "title": "Sources", "x": 40, "y": 90, "icon": "document"},
-    {"id": "index", "title": "Build index", "x": 360, "y": 90, "icon": "settings"},
-    {"id": "deploy", "title": "Deploy", "x": 680, "y": 90, "icon": "check"}
-  ],
-  "edges": [
-    {"from": "source", "to": "index"},
-    {"from": "index", "to": "deploy"}
-  ]
-}
-```
-
-Straight arrows are the default; `orthogonal` draws a deliberate 90-degree
-elbow between offset cards. `curve` with explicit `controls` exists for the
-rare relationship a straight or orthogonal route cannot express.
-
-Use `"variant": "icon"` for a standalone icon with its `title` underneath and
-no surrounding card. Add `"show_label": false` when the icon should appear
-without a visible label; the title remains available to the diagram's
-accessible description. Set `"icon_size"` when a symbol needs an explicit
-override. Standalone `user`, `browser`, `database`, and `volume` icons otherwise
-use the shared 56×56 px, 160×112 px, 84×84 px, and 84×84 px dimension tokens
-respectively. Connectors attach to the visible icon artwork rather than any
-transparent padding around it.
-
-Use `"variant": "plain"` for a card without its rectangle. The node keeps the
-same grid cell, icon column, and typography, but drops the fill, border, and
-shadow, so it reads as a label rather than a component. A plain node with an
-icon left-aligns its subtitle on the title axis because there is no card to
-center against.
-
-Add `"dividers"` to a grid or manual diagram to separate rows with a dashed
-rule. Each entry takes `after_row` (which requires `row` on every node), and
-the rule is drawn halfway between that row and the one below it across the
-full layout width:
+Grid and manual diagrams can separate rows with dashed rules:
 
 ```json
 "dividers": [{"after_row": 0}, {"after_row": 1}]
@@ -239,48 +173,96 @@ so coordinate-placed nodes do not need bookkeeping rows:
 "dividers": [{"after_node": "before_state"}]
 ```
 
-### Components and tokens
+### Variants
 
-Node colors are `purple`, `blue`, `amber`, `green`, `red`, and `gray`.
-Available icons are `aws`, `github`, `search`, `shield`, `container`,
-`database`, `volume`, `openai`, `issue`, `document`, `user`, `browser`,
-`websocket`, `api`, `settings`, `pull-request`, `rank-fusion`, `message`,
-`video`, `sparkles`, `check`, `warning`, `close`, `mention`, `number-1`,
-`number-2`, `number-3`, `workflow`, `robot`, `observability`, `environment`, `registry`, and
-`collector`.
+- `"variant": "icon"` — a standalone icon with its `title` underneath and no
+  surrounding card. Connectors attach to the visible artwork, not the
+  transparent padding around it.
+- `"variant": "plain"` — a card without its rectangle: same grid cell, icon
+  column, and typography, but no fill, border, or shadow, so it reads as a
+  label rather than a component.
+- `"variant": "boundary"` (manual layout) — a dashed infrastructure or runtime
+  boundary behind related nodes: give it `x`, `y`, `width`, `height`, list the
+  members in `contains`, and its title sits in the top-left corner. Connectors
+  entering or leaving the group get a background halo, so they cross the dashed
+  stroke through a clean port.
+- `"variant": "attached"` — a small sidecar note pinned to another card with
+  `attach_to`, `attach_side`, and `attach_align`.
+- `"variant": "specimen"` — a data-shaped panel (`series`, `record`, or
+  `waterfall` modes) for showing rows, tuples, or cumulative bars inside a
+  diagram.
 
-Use `"variant": "boundary"` in a manual layout for a dashed infrastructure or
-runtime boundary behind related nodes. Give it explicit `x`, `y`, `width`, and
-`height`; its title appears in the top-left corner. Connectors entering or
-leaving the group receive a background halo so they cross the dashed stroke
-through a clean port instead of visually merging with it.
+Cards share one component system — icon anchored to the left edge with the
+subtitle on the same margin, centered text when there is no icon, one shadow,
+one corner radius everywhere.
 
-Cards use one component system: a 16 px inset, 28 px icon viewport, 2 px
-semantic border, 18 px radius, and a shared shadow. An icon anchors the card to
-a left edge and the subtitle shares that margin; a card without an icon centers
-both lines instead. Either way the title and subtitle sit on one axis, the block
-is centered on the card, and long lines are fitted to the available column.
+### Colors and icons
 
-Edge routes are `forward`, `below`, `straight`, `curve`, `orthogonal`, `ring`,
-and `step`. A `step` leaves one card through its side, turns once halfway across
-the gap, and enters the next card's top or bottom edge; it is what `forward`
-means inside a staircase, and it also works in a grid or manual layout.
-`orthogonal` uses only horizontal and vertical segments. Explicit edges accept
-`from_anchor` and `to_anchor` values of `left`, `left_top`, `left_bottom`,
-`right`, `right_top`, `right_bottom`, `top`, or `bottom`. A curve takes exactly
-two absolute `[x, y]` control points. Set `"dashed": true` for a dashed edge,
-`"directed": false` for no arrowheads, or `"bidirectional": true` for
-arrowheads at both ends.
+Node colors: `purple`, `blue`, `amber`, `green`, `red`, `gray`.
 
-Edge-label pills use measured text width plus fixed padding. The renderer keeps
-them at least 14 px clear of arrowheads and rejects a label when its gutter is
-too narrow, so a pill cannot silently cover a marker or run into a card.
+<a id="icons"></a>Available icons: `alert`, `api`, `aws`, `browser`, `check`,
+`close`, `collector`, `container`, `database`, `document`, `environment`,
+`github`, `issue`, `lambda`, `mention`, `message`, `number-1`, `number-2`,
+`number-3`, `observability`, `openai`, `pull-request`, `queue`, `rank-fusion`,
+`registry`, `robot`, `search`, `settings`, `shell`, `shield`, `sparkles`,
+`terminal`, `user`, `video`, `volume`, `warning`, `websocket`, `workflow` —
+use `terminal` for a terminal-emulator window and `shell` for the command
+interpreter inside it.
 
-## Codex skill
+## Styles
 
-The repository includes a reusable skill in
-[`skills/diagram-creator`](skills/diagram-creator). Copy that directory into a
-Codex skills directory to make it available across projects.
+Diagrams render in one of three named styles: `default` (the original light
+look), `asl-light`, and `asl-dark`. The ASL styles match AI Shipping Labs: a
+neutral scale where the brand lime accent carries the green role, Inter for
+cards and JetBrains Mono for code, and — for `asl-dark` — dark tinted card
+fills with bright strokes on a near-black canvas.
+
+Set the style in JSON, where it also decides the default canvas background:
+
+```json
+{
+  "style": "asl-dark",
+  "canvas": {"width": 940, "height": 300},
+  "...": "..."
+}
+```
+
+Or override it per render without touching the spec:
+
+```bash
+uv run diagram-creator input.json output.svg --style asl-light
+uv run diagram-creator input.json output.png --style asl-dark
+```
+
+An explicit `"background"` in `canvas` still wins over the style's default.
+
+## Guardrails
+
+The CLI prints `note:` advisories on stderr when a spec renders but will read
+worse than it could: a manual-layout canvas visibly larger than its content, or
+a missing `description` (which becomes the SVG `<desc>` and the article's alt
+text). Advisories never fail the render; fix the spec and rerun. Hard failures
+— overlapping ring cards, a staircase that does not fit, a label with no
+gutter — come with the numbers to fix them, usually a suggested canvas size.
+
+## Python API
+
+```python
+from diagram_creator import load_spec, render_diagram
+
+spec = load_spec("spec.json")
+render_diagram(spec, "diagram.svg")
+render_diagram(spec, "diagram.png", style="asl-dark")
+```
+
+`render_diagram` returns the output path and accepts optional `width`,
+`height`, and `style` overrides; invalid specs raise `SpecError`.
+
+## Use it as an agent skill
+
+The repository ships a reusable skill in
+[`skills/diagram-creator`](skills/diagram-creator). Copy that directory into
+your agent's skills directory to make it available across projects.
 
 The skill also contains `scripts/publish_svgs.py`. It renders every local SVG
 referenced by a Markdown article as a same-name PNG and changes the article
@@ -292,12 +274,24 @@ python skills/diagram-creator/scripts/publish_svgs.py path/to/article.md
 
 ## Development
 
-Run the checks:
-
 ```bash
-make lint
-make test
+make setup     # uv sync --dev
+make lint      # ruff check + format check
+make test      # pytest
+make coverage  # pytest with term-missing coverage
+make example   # render examples/agent-workflow.png
 ```
 
-Read [How the renderer works](docs/how-it-works.md) for the drawing and routing
+To re-render every example after changing the renderer:
+
+```bash
+for f in examples/*.json; do uv run diagram-creator "$f" "${f%.json}.svg"; done
+```
+
+Read [How the renderer works](docs/how-it-works.md) and the
+[design system](docs/design-system.md) for the drawing, routing, and styling
 model.
+
+## License
+
+[MIT](LICENSE)
