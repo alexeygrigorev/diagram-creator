@@ -178,6 +178,136 @@ def test_attached_node_can_align_to_the_end_of_its_parent_edge(tmp_path):
     assert 'class="node-attached node-blue" transform="translate(260 173)"' in output.read_text()
 
 
+def test_attached_badge_does_not_shrink_card_titles(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 600, "height": 300},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 110},
+            "nodes": [
+                {"id": "app", "title": "Application", "x": 60, "y": 100},
+                {
+                    "id": "key",
+                    "title": "A deliberately long attached badge title",
+                    "variant": "attached",
+                    "attach_to": "app",
+                },
+            ],
+            "edges": [],
+        }
+    )
+    output = tmp_path / "attached-title-size.svg"
+
+    render_diagram(spec, output)
+
+    assert 'class="node-title" x="110"' in output.read_text()
+    assert 'font-size="20">Application</text>' in output.read_text()
+
+
+def test_plain_marker_does_not_shrink_card_titles(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 320},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 110},
+            "nodes": [
+                {"id": "run", "title": "Run", "x": 200, "y": 60},
+                {"id": "tick", "title": "2 s", "variant": "plain", "width": 50, "x": 210, "y": 210},
+            ],
+            "edges": [],
+        }
+    )
+    output = tmp_path / "plain-title-size.svg"
+
+    render_diagram(spec, output)
+
+    # A plain marker draws no rect, so its box is a layout hint rather than a
+    # container and it must not drag the shared title size down with it.
+    assert 'font-size="20">Run</text>' in output.read_text()
+
+
+def test_rejects_a_card_too_narrow_for_its_title(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 320},
+            "layout": {"type": "manual", "card_width": 90, "card_height": 110},
+            "nodes": [
+                {"id": "store", "title": "Upstash Vector", "x": 60, "y": 100},
+                {"id": "app", "title": "App", "x": 400, "y": 100},
+            ],
+            "edges": [],
+        }
+    )
+
+    with pytest.raises(SpecError, match=r"node 'store' is too narrow for its title"):
+        render_diagram(spec, tmp_path / "narrow-title.svg")
+
+
+def test_narrow_title_error_names_the_shortfall(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 320},
+            "layout": {"type": "manual", "card_width": 90, "card_height": 110},
+            "nodes": [
+                {"id": "store", "title": "Upstash Vector", "x": 60, "y": 100},
+                {"id": "app", "title": "App", "x": 400, "y": 100},
+            ],
+            "edges": [],
+        }
+    )
+
+    with pytest.raises(SpecError) as caught:
+        render_diagram(spec, tmp_path / "narrow-title.svg")
+
+    message = str(caught.value)
+    assert "13px readability floor" in message
+    assert "'Upstash Vector' needs" in message
+    assert re.search(r"Widen this card by \d+px", message)
+
+
+def test_rejects_a_card_too_narrow_for_its_subtitle(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 320},
+            "layout": {"type": "manual", "card_width": 80, "card_height": 120},
+            "nodes": [
+                {
+                    "id": "index",
+                    "title": "Idx",
+                    "subtitle": "unbreakableidentifier",
+                    "x": 60,
+                    "y": 100,
+                },
+                {"id": "app", "title": "App", "x": 400, "y": 100},
+            ],
+            "edges": [],
+        }
+    )
+
+    with pytest.raises(SpecError, match=r"node 'index' is too narrow for its subtitle"):
+        render_diagram(spec, tmp_path / "narrow-subtitle.svg")
+
+
+def test_title_still_steps_down_above_the_readability_floor(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 320},
+            "layout": {"type": "manual", "card_width": 150, "card_height": 110},
+            "nodes": [
+                {"id": "store", "title": "Retrieval store", "x": 60, "y": 100},
+                {"id": "app", "title": "App", "x": 400, "y": 100},
+            ],
+            "edges": [],
+        }
+    )
+    output = tmp_path / "stepped-title.svg"
+
+    render_diagram(spec, output)
+
+    # Shrinking is still the right answer between the requested size and the
+    # floor - only the silent drop below it became an error.
+    size = int(re.search(r'font-size="(\d+)">Retrieval store</text>', output.read_text()).group(1))
+    assert 13 <= size < 20
+
+
 def test_cli_renders_a_json_spec(tmp_path):
     source = tmp_path / "diagram.json"
     output = tmp_path / "diagram.png"
@@ -222,6 +352,25 @@ def test_renders_a_bidirectional_edge_with_two_arrowheads(tmp_path):
     assert 'id="arrow-start-purple"' in svg
     assert 'marker-start="url(#arrow-start-purple)"' in svg
     assert 'marker-end="url(#arrow-purple)"' in svg
+def test_preserves_an_explicit_subtitle_line_break(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "nodes": [
+                {"id": "pty", "title": "Kernel PTY", "subtitle": "input →\n← output"},
+                {"id": "shell", "title": "Shell"},
+            ],
+            "edges": [{"from": "pty", "to": "shell"}],
+        }
+    )
+    output = tmp_path / "explicit-subtitle-break.svg"
+
+    render_diagram(spec, output)
+
+    svg = output.read_text()
+    assert ">input →</text>" in svg
+    assert ">← output</text>" in svg
+
+
 
 
 def test_renders_a_dashed_edge(tmp_path):

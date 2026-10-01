@@ -69,6 +69,13 @@ ICON_GUTTER = 12
 ICON_SIZE = 34
 TITLE_SIZE, TITLE_WEIGHT = 20, 750
 SUBTITLE_SIZE, SUBTITLE_WEIGHT = 16, 500
+# Below these the figure stops being readable at the 768px reading column, so a
+# card that cannot fit its text at this size is an error rather than a shrink.
+TITLE_SIZE_FLOOR, SUBTITLE_SIZE_FLOOR = 13, 11
+# Variants drawn without a card rect. Their text has no border to overflow, and
+# their box is a layout hint rather than a container, so they must not pull the
+# shared type size down: four 50px axis ticks once took a whole figure to 10px.
+UNBOXED_VARIANTS = {"icon", "boundary", "specimen", "plain"}
 DETAIL_SIZE, DETAIL_WEIGHT = 16, 600
 EDGE_LABEL_SIZE, EDGE_LABEL_WEIGHT = 14, 750
 EDGE_LABEL_HEIGHT = 32
@@ -878,23 +885,24 @@ def _ring_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
 
 
 def _wrap_lines(text: str, available: float, size: int, weight: int, limit: int) -> list[str]:
-    """Break a line at spaces so a card can be narrow without truncating copy."""
+    """Wrap at spaces while preserving intentional line breaks in card copy."""
     lines: list[str] = []
-    current = ""
-    for word in text.split():
-        candidate = f"{current} {word}" if current else word
-        if current and _text_width(candidate, size, weight) > available:
+    for paragraph in text.splitlines() or [text]:
+        current = ""
+        for word in paragraph.split():
+            candidate = f"{current} {word}" if current else word
+            if current and _text_width(candidate, size, weight) > available:
+                lines.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
             lines.append(current)
-            current = word
-            if len(lines) == limit - 1:
-                # The last line takes whatever is left and is squeezed if need be.
-                remainder = text.split()[text.split().index(word) :]
-                lines.append(" ".join(remainder))
-                return lines
-        else:
-            current = candidate
-    if current:
-        lines.append(current)
+
+    if len(lines) > limit:
+        # Preserve every word. As before, the final permitted line takes the
+        # remainder and the card-level fit check decides whether it is legible.
+        lines = lines[: limit - 1] + [" ".join(lines[limit - 1 :])]
     return lines or [text]
 
 
@@ -906,6 +914,49 @@ def _text_width(text: str, size: int, weight: int) -> float:
     return size * sum(table.get(character, fallback) for character in text)
 
 
+def _title_room(spec: DiagramSpec, node: Node, box: Box) -> float:
+    """The inner width a card title has, after padding and any inline icon."""
+    # An icon above the title leaves the title the card's full inner width.
+    if spec.layout.icon_position == "block" or not node.icon:
+        return box.width - 32
+    scale = spec.layout.font_scale
+    icon_size, gutter = round(ICON_SIZE * scale), ICON_GUTTER * scale
+    if spec.layout.icon_axis_fixed:
+        return box.width - 32 - (icon_size + gutter)
+    low, high = ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)
+    return box.width - 32 - ((high - low) * icon_size + gutter)
+
+
+def _largest_fitting_size(
+    wanted: int,
+    floor: int,
+    nodes: list[Node],
+    width_at: Callable[[Node, int], float],
+    room_for: Callable[[Node], float],
+    what: str,
+    text_of: Callable[[Node], str],
+) -> int:
+    """Step the type size down until every node fits, or fail naming the culprit.
+
+    One over-narrow card sets the size for the whole diagram, so shrinking
+    without a floor lets a single bad card quietly take every other title down
+    with it - and at the bottom of the range the text still overflows, which is
+    worse than either. Below `floor` the figure is no longer readable at the
+    768px reading column, so stop and say which card is the problem and by how
+    much, the way an inclined edge is reported.
+    """
+    for size in range(wanted, floor - 1, -1):
+        if all(width_at(node, size) <= room_for(node) for node in nodes):
+            return size
+    worst = max(nodes, key=lambda node: width_at(node, floor) - room_for(node))
+    need, have = width_at(worst, floor), room_for(worst)
+    raise SpecError(
+        f"node {worst.id!r} is too narrow for its {what}: at the {floor}px readability "
+        f"floor {text_of(worst)!r} needs {need:.0f}px but the card leaves {have:.0f}px. "
+        f"Widen this card by {need - have:.0f}px, shorten the {what}, or lower 'font_scale'."
+    )
+
+
 def _card_title_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
     """The largest title size at or below the requested one that fits every card.
 
@@ -915,54 +966,39 @@ def _card_title_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
     every title in the same, undistorted face.
     """
     scale = spec.layout.font_scale
-    wanted = round(TITLE_SIZE * scale)
-    icon_size, gutter = round(ICON_SIZE * scale), ICON_GUTTER * scale
-    # An icon above the title leaves the title the card's full inner width.
-    stacked = spec.layout.icon_position == "block"
-    for size in range(wanted, 7, -1):
-        if all(
-            _text_width(node.title, size, TITLE_WEIGHT)
-            <= boxes[node.id].width
-            - 32
-            - (
-                0
-                if stacked or not node.icon
-                else (
-                    (
-                        icon_size
-                        if spec.layout.icon_axis_fixed
-                        else (
-                            ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)[1]
-                            - ICON_INK.get(node.icon or "", DEFAULT_ICON_INK)[0]
-                        )
-                        * icon_size
-                    )
-                    + gutter
-                )
-            )
-            for node in spec.nodes
-            if node.variant not in {"icon", "boundary", "specimen"}
-        ):
-            return size
-    return 8
+    return _largest_fitting_size(
+        wanted=round(TITLE_SIZE * scale),
+        floor=max(1, round(TITLE_SIZE_FLOOR * scale)),
+        nodes=[node for node in spec.nodes if node.variant not in UNBOXED_VARIANTS | {"attached"}],
+        width_at=lambda node, size: _text_width(node.title, size, TITLE_WEIGHT),
+        room_for=lambda node: _title_room(spec, node, boxes[node.id]),
+        what="title",
+        text_of=lambda node: node.title,
+    )
 
 
 def _card_subtitle_size(spec: DiagramSpec, boxes: dict[str, Box]) -> int:
     """The largest subtitle size whose wrapped lines fit every card undistorted."""
-    wanted = round(SUBTITLE_SIZE * spec.layout.font_scale)
-    for size in range(wanted, 7, -1):
-        if all(
-            all(
-                _text_width(line, size, SUBTITLE_WEIGHT) <= boxes[node.id].width - 32
-                for line in _wrap_lines(
-                    node.subtitle, boxes[node.id].width - 32, size, SUBTITLE_WEIGHT, SUBTITLE_LINES
-                )
-            )
-            for node in spec.nodes
-            if node.subtitle and node.variant not in {"icon", "boundary", "specimen"}
-        ):
-            return size
-    return 8
+    scale = spec.layout.font_scale
+
+    def widest_line(node: Node, size: int) -> float:
+        room = boxes[node.id].width - 32
+        return max(
+            _text_width(line, size, SUBTITLE_WEIGHT)
+            for line in _wrap_lines(node.subtitle, room, size, SUBTITLE_WEIGHT, SUBTITLE_LINES)
+        )
+
+    return _largest_fitting_size(
+        wanted=round(SUBTITLE_SIZE * scale),
+        floor=max(1, round(SUBTITLE_SIZE_FLOOR * scale)),
+        nodes=[
+            node for node in spec.nodes if node.subtitle and node.variant not in UNBOXED_VARIANTS
+        ],
+        width_at=widest_line,
+        room_for=lambda node: boxes[node.id].width - 32,
+        what="subtitle",
+        text_of=lambda node: node.subtitle,
+    )
 
 
 def _draw_node(
