@@ -1,4 +1,6 @@
 {
+  "title": "Feature delivery workflow with a test failure loop",
+  "description": "A feature is groomed by a PM, implemented by an engineer, and tested by QA; passing work is done and failing work loops back to implementation.",
   "background": "#f8fafc",
   "nodes": [
     {

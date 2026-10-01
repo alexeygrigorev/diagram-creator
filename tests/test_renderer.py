@@ -352,6 +352,9 @@ def test_renders_a_bidirectional_edge_with_two_arrowheads(tmp_path):
     assert 'id="arrow-start-purple"' in svg
     assert 'marker-start="url(#arrow-start-purple)"' in svg
     assert 'marker-end="url(#arrow-purple)"' in svg
+    assert 'markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12"' in svg
+
+
 def test_preserves_an_explicit_subtitle_line_break(tmp_path):
     spec = DiagramSpec.from_dict(
         {
@@ -371,6 +374,55 @@ def test_preserves_an_explicit_subtitle_line_break(tmp_path):
     assert ">← output</text>" in svg
 
 
+def test_rejects_a_bidirectional_edge_with_colliding_arrowheads(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 980, "height": 280},
+            "layout": {"type": "manual", "card_width": 215, "card_height": 100},
+            "nodes": [
+                {"id": "master", "title": "Master", "x": 20, "y": 90},
+                {"id": "slave", "title": "Slave", "x": 260, "y": 90},
+            ],
+            "edges": [{"from": "master", "to": "slave", "bidirectional": True}],
+        }
+    )
+
+    with pytest.raises(
+        SpecError,
+        match=r"bidirectional edge master -> slave has only 25 px.*at least 48 px",
+    ):
+        render_diagram(spec, tmp_path / "crowded-bidirectional.svg")
+
+
+@pytest.mark.parametrize("gap", [48, 80])
+def test_allows_a_bidirectional_edge_at_or_above_minimum_clearance(tmp_path, gap):
+    card_width = 215
+    source_x = 20
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 980, "height": 280},
+            "layout": {
+                "type": "manual",
+                "card_width": card_width,
+                "card_height": 100,
+            },
+            "nodes": [
+                {"id": "master", "title": "Master", "x": source_x, "y": 90},
+                {
+                    "id": "slave",
+                    "title": "Slave",
+                    "x": source_x + card_width + gap,
+                    "y": 90,
+                },
+            ],
+            "edges": [{"from": "master", "to": "slave", "bidirectional": True}],
+        }
+    )
+
+    output = tmp_path / f"bidirectional-{gap}.svg"
+    render_diagram(spec, output)
+
+    assert 'marker-start="url(#arrow-start-gray)"' in output.read_text()
 
 
 def test_renders_a_dashed_edge(tmp_path):
@@ -478,6 +530,42 @@ def test_renders_an_orthogonal_edge_without_diagonal_segments(tmp_path):
 
     svg = output.read_text()
     assert 'd="M240 200H330V80H420"' in svg
+
+
+def test_rejects_an_inclined_default_edge(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 400},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {"id": "source", "title": "Source", "x": 20, "y": 150},
+                {"id": "target", "title": "Target", "x": 420, "y": 149},
+            ],
+            "edges": [{"from": "source", "to": "target"}],
+        }
+    )
+
+    with pytest.raises(SpecError, match="default edge source -> target is inclined"):
+        render_diagram(spec, tmp_path / "inclined.svg")
+
+
+def test_allows_an_explicit_intentional_diagonal(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 700, "height": 400},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {"id": "source", "title": "Source", "x": 20, "y": 150},
+                {"id": "target", "title": "Target", "x": 420, "y": 30},
+            ],
+            "edges": [{"from": "source", "to": "target", "route": "straight"}],
+        }
+    )
+
+    output = tmp_path / "intentional-diagonal.svg"
+    render_diagram(spec, output)
+
+    assert 'd="M240 200L420 80"' in output.read_text()
 
 
 def test_renders_orthogonal_edges_to_separate_side_anchors(tmp_path):
@@ -748,6 +836,60 @@ def test_content_aware_boundary_uses_consistent_default_margins(tmp_path):
     assert '<rect width="530" height="190"' in svg
 
 
+def test_rejects_a_content_aware_boundary_clipped_by_the_canvas(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 900, "height": 420},
+            "layout": {"type": "manual", "card_width": 220, "card_height": 100},
+            "nodes": [
+                {
+                    "id": "remote-host",
+                    "title": "Remote host",
+                    "variant": "boundary",
+                    "contains": ["shell"],
+                },
+                {"id": "shell", "title": "Shell", "x": 330, "y": 50},
+            ],
+            "edges": [],
+        }
+    )
+
+    with pytest.raises(
+        SpecError,
+        match=r"node 'remote-host' extends outside the 900x420 canvas: 10 px past the top edge",
+    ):
+        render_diagram(spec, tmp_path / "clipped-content-aware-boundary.svg")
+
+
+def test_rejects_a_boundary_too_narrow_for_its_title(tmp_path):
+    spec = DiagramSpec.from_dict(
+        {
+            "canvas": {"width": 900, "height": 420},
+            "layout": {"type": "manual", "card_width": 80, "card_height": 100},
+            "nodes": [
+                {
+                    "id": "remote-host",
+                    "title": "Remote compute host",
+                    "variant": "boundary",
+                    "contains": ["shell"],
+                },
+                {"id": "shell", "title": "Shell", "x": 330, "y": 100},
+            ],
+            "edges": [],
+        }
+    )
+
+    with pytest.raises(
+        SpecError,
+        match=(
+            r"boundary 'remote-host' is too narrow for its title 'Remote compute host': "
+            r"it requires \d+ px including 20 px side padding, but the boundary is only "
+            r"120 px wide"
+        ),
+    ):
+        render_diagram(spec, tmp_path / "overflowing-boundary-title.svg")
+
+
 def test_renders_each_signal_specimen_as_its_own_visual_form(tmp_path):
     spec = DiagramSpec.from_dict(
         {
@@ -796,9 +938,9 @@ def test_renders_each_signal_specimen_as_its_own_visual_form(tmp_path):
                 },
             ],
             "edges": [
-                {"from": "app", "to": "metrics"},
-                {"from": "app", "to": "logs"},
-                {"from": "app", "to": "traces"},
+                {"from": "app", "to": "metrics", "route": "orthogonal"},
+                {"from": "app", "to": "logs", "route": "orthogonal"},
+                {"from": "app", "to": "traces", "route": "orthogonal"},
             ],
         }
     )
@@ -892,7 +1034,7 @@ def test_renders_an_icon_node_with_its_label_but_without_a_card(tmp_path):
                 },
                 {"id": "app", "title": "App", "x": 300, "y": 40},
             ],
-            "edges": [{"from": "person", "to": "app"}],
+            "edges": [{"from": "person", "to": "app", "route": "orthogonal"}],
         }
     )
     output = tmp_path / "icon-node.svg"
@@ -925,7 +1067,7 @@ def test_renders_an_icon_node_without_a_visible_label(tmp_path):
                 },
                 {"id": "app", "title": "App", "x": 300, "y": 40},
             ],
-            "edges": [{"from": "person", "to": "app"}],
+            "edges": [{"from": "person", "to": "app", "route": "orthogonal"}],
         }
     )
     output = tmp_path / "unlabeled-icon-node.svg"
@@ -969,7 +1111,7 @@ def test_uses_reusable_sizes_for_standalone_endpoint_icons(tmp_path):
                 },
             ],
             "edges": [
-                {"from": "browser", "to": "database"},
+                {"from": "browser", "to": "database", "route": "orthogonal"},
                 {"from": "database", "to": "volume"},
             ],
         }
@@ -987,7 +1129,7 @@ def test_uses_reusable_sizes_for_standalone_endpoint_icons(tmp_path):
 def test_connectors_touch_visible_standalone_icon_ink(tmp_path):
     spec = DiagramSpec.from_dict(
         {
-            "canvas": {"width": 650, "height": 380},
+            "canvas": {"width": 650, "height": 460},
             "layout": {"type": "manual", "card_width": 220, "card_height": 100},
             "nodes": [
                 {"id": "horizontal", "title": "App", "x": 20, "y": 80},

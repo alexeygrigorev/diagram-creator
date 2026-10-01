@@ -159,6 +159,19 @@ staircase and ring layouts the correct count is zero. In grid and manual, a
 crossing needs a stated reason; if reordering nodes or moving an anchor removes
 it, it fails.
 
+### A8. Ordinary connectors are axis-aligned - AUTOMATABLE, BLOCKER
+
+Horizontal and vertical connectors are exact, including connections between a
+standalone icon and a card. A one-pixel incline is still visible at article
+scale and makes an otherwise aligned system look carelessly assembled.
+
+Check every straight segment in the rendered SVG. Its endpoints must share an
+x- or y-coordinate within 0.5 px. The default direct route must reject any edge
+with meaningful movement on both axes. Offset endpoints use an orthogonal
+route. A true diagonal is allowed only when the JSON explicitly sets
+`route: "straight"` and the figure brief explains why diagonal direction is
+semantically necessary; rarity alone is not a justification.
+
 ## Section B - Cards and typography
 
 ### B1. Cards are filled, not just centered - AUTOMATABLE

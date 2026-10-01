@@ -57,6 +57,11 @@ STAIRCASE_MIN_ADVANCE = 0.6
 STEP_CORNER = 12
 ICON_GUTTER = 12
 ICON_SIZE = 34
+ARROW_MARKER_SIZE = 12
+# Reserve one marker-width for each arrowhead and the same amount of clear
+# connector between them. Keeping this derived from the rendered marker size
+# prevents a future marker resize from silently reintroducing collisions.
+BIDIRECTIONAL_EDGE_MIN_LENGTH = ARROW_MARKER_SIZE * 4
 TITLE_SIZE, TITLE_WEIGHT = 20, 750
 SUBTITLE_SIZE, SUBTITLE_WEIGHT = 16, 500
 BOUNDARY_TITLE_SIZE, BOUNDARY_TITLE_WEIGHT = 16, 750
@@ -440,19 +445,23 @@ def render_svg_text(
     )
     background = spec.canvas.background or style.canvas_background
     boxes = _layout(spec, canvas_width, canvas_height)
+    _validate_node_boxes_inside_canvas(spec, boxes, canvas_width, canvas_height)
+    _validate_boundary_titles_fit(spec, boxes)
     connector_boxes = _connector_boxes(spec, boxes)
     symbols = _symbols_for(spec)
     markers = "\n".join(
         f'<marker id="arrow-{name}" viewBox="0 0 10 10" refX="9" refY="5" '
-        'markerWidth="9" markerHeight="9" orient="auto">'
+        f'markerUnits="userSpaceOnUse" markerWidth="{ARROW_MARKER_SIZE}" '
+        f'markerHeight="{ARROW_MARKER_SIZE}" orient="auto">'
         f'<path d="M0 0 10 5 0 10Z" fill="{color}"/></marker>'
         for name, color in style.edge_colors.items()
     )
     start_marker_colors = {edge.color for edge in spec.edges if edge.bidirectional}
     start_markers = "\n".join(
         f'<marker id="arrow-start-{name}" viewBox="0 0 10 10" refX="9" refY="5" '
-        'markerWidth="9" markerHeight="9" orient="auto-start-reverse">'
-        f'<path d="M0 0 10 5 0 10Z" fill="{EDGE_COLORS[name]}"/></marker>'
+        f'markerUnits="userSpaceOnUse" markerWidth="{ARROW_MARKER_SIZE}" '
+        f'markerHeight="{ARROW_MARKER_SIZE}" orient="auto-start-reverse">'
+        f'<path d="M0 0 10 5 0 10Z" fill="{style.edge_colors[name]}"/></marker>'
         for name in sorted(start_marker_colors)
     )
     marker_defs = markers + ("\n" + start_markers if start_markers else "")
@@ -620,6 +629,48 @@ def _visual_node_box(node: Node, box: Box) -> Box:
     """Include the visible label below a standalone icon in group bounds."""
     label_room = 32 if node.variant == "icon" and node.show_label else 0
     return Box(box.x, box.y, box.width, box.height + label_room)
+
+
+def _validate_node_boxes_inside_canvas(
+    spec: DiagramSpec, boxes: dict[str, Box], width: int, height: int
+) -> None:
+    """Reject computed node geometry that would be clipped by the canvas."""
+    epsilon = 1e-6
+    for node in spec.nodes:
+        box = _visual_node_box(node, boxes[node.id])
+        overflow = []
+        if box.x < -epsilon:
+            overflow.append(f"{_number(-box.x)} px past the left edge")
+        if box.right > width + epsilon:
+            overflow.append(f"{_number(box.right - width)} px past the right edge")
+        if box.y < -epsilon:
+            overflow.append(f"{_number(-box.y)} px past the top edge")
+        if box.bottom > height + epsilon:
+            overflow.append(f"{_number(box.bottom - height)} px past the bottom edge")
+        if overflow:
+            raise SpecError(
+                f"node {node.id!r} extends outside the {width}x{height} canvas: "
+                f"{', '.join(overflow)}. Move or resize the node, or enlarge the canvas"
+            )
+
+
+def _validate_boundary_titles_fit(spec: DiagramSpec, boxes: dict[str, Box]) -> None:
+    """Reject a boundary whose title would visibly escape its rectangle."""
+    for node in spec.nodes:
+        if node.variant != "boundary":
+            continue
+        required_width = (
+            _text_width(node.title, BOUNDARY_TITLE_SIZE, BOUNDARY_TITLE_WEIGHT)
+            + 2 * BOUNDARY_TITLE_SIDE_PADDING
+        )
+        available_width = boxes[node.id].width
+        if required_width > available_width + 1e-6:
+            raise SpecError(
+                f"boundary {node.id!r} is too narrow for its title {node.title!r}: "
+                f"it requires {math.ceil(required_width)} px including "
+                f"{BOUNDARY_TITLE_SIDE_PADDING} px side padding, but the boundary is only "
+                f"{_number(available_width)} px wide. Widen the boundary or shorten the title"
+            )
 
 
 def _staircase_layout(spec: DiagramSpec, width: int, height: int) -> dict[str, Box]:
@@ -1136,7 +1187,8 @@ def _draw_boundary_node(node: Node, box: Box, style: Style) -> str:
             f'transform="translate({_number(box.x)} {_number(box.y)})">',
             f'    <rect width="{_number(box.width)}" height="{_number(box.height)}" '
             f'rx="22" fill="none" stroke="{palette.stroke}"/>',
-            f'    <text class="boundary-title" x="20" y="31">{escape(node.title)}</text>',
+            f'    <text class="boundary-title" x="{BOUNDARY_TITLE_SIDE_PADDING}" y="31">'
+            f"{escape(node.title)}</text>",
             "  </g>",
         ]
     )
@@ -1346,6 +1398,9 @@ def _draw_edge(
     elif route == "orthogonal":
         path, label_point = _orthogonal_path(edge, boxes)
     else:
+        if route == "forward":
+            _validate_default_edge_is_axis_aligned(edge, boxes)
+        _validate_direct_bidirectional_edge_length(edge, boxes)
         path, label_point = _direct_path(edge, boxes, curved=route == "curve")
     color = style.edge_colors[edge.color]
     marker_start = f' marker-start="url(#arrow-start-{edge.color})"' if edge.bidirectional else ""
@@ -1380,6 +1435,48 @@ def _draw_edge(
         )
     )
     return "\n".join(parts)
+
+
+def _validate_default_edge_is_axis_aligned(edge: Edge, boxes: dict[str, Box]) -> None:
+    """Reject accidental near-diagonals produced by the default direct route.
+
+    An explicit ``route: straight`` remains available for the rare figure where
+    a true diagonal carries meaning. The default is strict so a one-pixel node
+    misalignment cannot silently ship as a visibly crooked connector.
+    """
+    source = boxes[edge.source]
+    target = boxes[edge.target]
+    default_source, default_target = _default_anchors(source, target)
+    start = _anchor(source, edge.source_anchor or default_source)
+    end = _anchor(target, edge.target_anchor or default_target)
+    dx = abs(end[0] - start[0])
+    dy = abs(end[1] - start[1])
+    if dx > 0.5 and dy > 0.5:
+        raise SpecError(
+            f"default edge {edge.source} -> {edge.target} is inclined "
+            f"({_number(dx)}x{_number(dy)} px); align its visible anchors or use "
+            "route 'orthogonal'. Set route 'straight' only when a deliberate "
+            "diagonal carries meaning"
+        )
+
+
+def _validate_direct_bidirectional_edge_length(edge: Edge, boxes: dict[str, Box]) -> None:
+    """Reject a direct bidirectional edge whose arrowheads would crowd together."""
+    if not edge.bidirectional:
+        return
+    source = boxes[edge.source]
+    target = boxes[edge.target]
+    default_source, default_target = _default_anchors(source, target)
+    start = _anchor(source, edge.source_anchor or default_source)
+    end = _anchor(target, edge.target_anchor or default_target)
+    length = math.hypot(end[0] - start[0], end[1] - start[1])
+    if length < BIDIRECTIONAL_EDGE_MIN_LENGTH:
+        raise SpecError(
+            f"bidirectional edge {edge.source} -> {edge.target} has only "
+            f"{_number(length)} px between endpoints; it needs at least "
+            f"{BIDIRECTIONAL_EDGE_MIN_LENGTH} px so its arrowheads do not collide. "
+            "Move the nodes farther apart or choose anchors with more clearance"
+        )
 
 
 def _edge_crosses_boundary(spec: DiagramSpec, edge: Edge, boxes: dict[str, Box]) -> bool:
