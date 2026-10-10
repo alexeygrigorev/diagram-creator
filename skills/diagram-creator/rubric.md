@@ -9,7 +9,7 @@ passes and a designer pass finds nothing structural left.
 
 ## How to score
 
-Thirty-three criteria in six sections. Each is pass, fail, or N/A - a criterion that
+Thirty-four criteria in six sections. Each is pass, fail, or N/A - a criterion that
 does not apply (ring checks on a staircase, set checks on a lone diagram) leaves
 the denominator entirely; it is never a free point. Anything you cannot verify
 scores zero, not the benefit of the doubt.
@@ -171,6 +171,23 @@ with meaningful movement on both axes. Offset endpoints use an orthogonal
 route. A true diagonal is allowed only when the JSON explicitly sets
 `route: "straight"` and the figure brief explains why diagonal direction is
 semantically necessary; rarity alone is not a justification.
+
+### A9. Paired connectors are reflections of each other - JUDGEMENT
+
+When two connectors play symmetric roles, they use the same route reflected.
+Most often this applies to the edge into a card and the edge out of it, such as a
+step down to a lower lane and the return up to the upper lane.
+
+If the outgoing edge leaves a side and turns into the next card's bottom, the
+incoming edge leaves the previous card's bottom and turns into this card's
+side. When one edge drops into a top and its partner enters from a side, the
+reader sees two different kinds of relationship.
+
+Check: list the edges that enter and leave each card, and every pair the
+figure presents as symmetric. For each pair, compare the anchor sides and the
+order of elbows. The second edge must reflect the first: the same number of
+elbows, with the source and target anchor sides swapped. Fix it with explicit
+`from_anchor` and `to_anchor` values on both edges, not by moving cards.
 
 ## Section B - Cards and typography
 

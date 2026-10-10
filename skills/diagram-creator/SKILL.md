@@ -212,6 +212,11 @@ system rather than steps that hand work to each other.
   protocol (`HTTPS / WSS`), an artifact (`Version tag`), a fork condition
   (`Bug reproduced`). The renderer sizes label pills from measured text and
   rejects a label whose gutter cannot hold it clear of the arrowheads.
+- Draw paired connectors as reflections of each other. When the edge into a
+  card and the edge out of it play symmetric roles, such as down to a lower
+  lane and back up, give them the same route reflected. If one leaves a side
+  and enters a bottom, the other leaves a bottom and enters a side. Set
+  `from_anchor` and `to_anchor` on both edges.
 - Use `left_top`, `left_bottom`, `right_top`, or `right_bottom` anchors when
   parallel inputs must attach to distinct points on one card edge.
 
@@ -272,7 +277,7 @@ accepted file. Commit the accepted state before a risky change, and when
 feedback names one defect, change only that defect; a targeted complaint is
 not license to restructure.
 
-Score the render against [`rubric.md`](rubric.md) before shipping - 33
+Score the render against [`rubric.md`](rubric.md) before shipping - 34
 criteria in six sections, most of them measurable against the SVG or the
 rendered PNG. Measure rather than eyeball, and report the score with the
 failing criteria named. A diagram that renders is not a diagram that is done.
